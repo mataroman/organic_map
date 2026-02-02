@@ -9,22 +9,16 @@
     <style>
         :root { --main-green: #2e7d32; --stop-red: #c62828; }
         body { margin: 0; padding: 0; height: 100dvh; font-family: sans-serif; overflow: hidden; background: #000; }
-        
         #map { width: 100%; height: 100%; position: absolute; z-index: 1; transition: 0.3s; }
         .map-locked { opacity: 0.6; filter: grayscale(0.5); pointer-events: none; }
-        
-        /* ワンちゃんの看板 */
         .dog-banner {
             position: fixed; top: 15px; left: 15px; z-index: 4000;
             background: white; padding: 5px; border-radius: 50px;
             display: flex; align-items: center; box-shadow: 0 4px 10px rgba(0,0,0,0.2);
+            border: 2px solid var(--main-green);
         }
-        .dog-photo {
-            width: 50px; height: 50px; border-radius: 50%; object-fit: cover;
-            background: #eee; border: 2px solid var(--main-green);
-        }
+        .dog-photo { width: 50px; height: 50px; border-radius: 50%; object-fit: cover; background: #eee; }
         .dog-msg { padding: 0 15px 0 10px; font-weight: bold; font-size: 0.8rem; color: #333; }
-
         .ui { position: fixed; bottom: 30px; left: 0; right: 0; z-index: 3000; text-align: center; }
         .btn {
             color: white; border: none; padding: 18px 45px;
@@ -33,30 +27,29 @@
         }
         .scan-btn { background: var(--main-green); }
         .stop-btn { background: var(--stop-red); }
-
         #progress-container {
             width: 70%; max-width: 250px; height: 8px; background: rgba(255,255,255,0.5);
             margin: 15px auto; border-radius: 10px; overflow: hidden; display: none;
         }
-        #progress-bar { width: 0%; height: 100%; background: #fff; transition: width 0.1s linear; }
-
+        #progress-bar { width: 0%; height: 100%; background: #fff; transition: width 0.2s ease-out; }
         #status {
             background: rgba(255,255,255,0.9); padding: 8px 20px;
             border-radius: 25px; font-size: 0.9rem; display: inline-block; font-weight: bold;
         }
+        .dog-pin { font-size: 30px; text-align: center; line-height: 30px; }
     </style>
 </head>
 <body>
 
 <div class="dog-banner">
-    <img src="https://cdn-icons-png.flaticon.com/512/616/616408.png" class="dog-photo" id="my-dog">
-    <div class="dog-msg">ボクが見つけるワン！</div>
+    <img src="mataro.jpg" class="dog-photo" onerror="this.src='https://cdn-icons-png.flaticon.com/512/616/616408.png'">
+    <div class="dog-msg">またろうが見つけるワン！</div>
 </div>
 
 <div id="map"></div>
 
 <div class="ui">
-    <div id="status">宝塚の自然食品を探すワン！</div>
+    <div id="status">宝塚をクンクンするよ</div>
     <div id="progress-container"><div id="progress-bar"></div></div>
     <button id="action-btn" class="btn scan-btn" onclick="toggleScan()">🌿 スキャン開始</button>
 </div>
@@ -64,13 +57,13 @@
 <script>
     const appid = 'dj00aiZpPVhxNDZuMmNxTWtNayZzPWNvbnN1bWVyc2VjcmV0Jng9NTI-';
     let isScanning = false;
-    let pVal = 0;
-    let pTimer;
+    let timeoutTimer = null;
+    let pTimer = null;
 
     const map = L.map('map', { zoomControl: false }).setView([34.811, 135.341], 15);
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
 
-    function toggleScan() { if (isScanning) { stopScan("中止だワン"); } else { startScan(); } }
+    function toggleScan() { if (isScanning) { stopScan("止めたワン"); } else { startScan(); } }
 
     function startScan() {
         isScanning = true;
@@ -80,15 +73,21 @@
         const btn = document.getElementById('action-btn');
         const bar = document.getElementById('progress-bar');
         
-        btn.innerText = "🛑 止めるワン！"; btn.className = "btn stop-btn";
-        document.getElementById('status').innerText = "一生懸命クンクンしてるワン...";
+        btn.innerText = "🛑 停止する"; btn.className = "btn stop-btn";
+        document.getElementById('status').innerText = "一生懸命、探索中...";
 
-        pVal = 0;
+        // 1. 進捗バーを5秒かけて100%に持っていくアニメーション
+        bar.style.width = "0%";
+        let pVal = 0;
         pTimer = setInterval(() => {
-            pVal += (100 - pVal) * 0.2; // 爆速で進むロジック
-            bar.style.width = pVal + "%";
-            if(pVal > 99) clearInterval(pTimer); // 確実に最後まで行かせる
+            pVal += 2;
+            if(pVal <= 98) bar.style.width = pVal + "%";
         }, 100);
+
+        // 2. 【重要】5秒経っても反応がなければ強制終了（タイムアウト）
+        timeoutTimer = setTimeout(() => {
+            if (isScanning) stopScan("反応がないみたいだワン...😢");
+        }, 5000);
 
         const center = map.getCenter();
         const query = encodeURIComponent('オーガニック 自然食品 無添加 産直');
@@ -100,13 +99,17 @@
     }
 
     function stopScan(msg) {
-        isScanning = false; clearInterval(pTimer);
+        isScanning = false;
+        clearTimeout(timeoutTimer);
+        clearInterval(pTimer);
         map.dragging.enable(); map.touchZoom.enable();
         document.getElementById('map').classList.remove('map-locked');
         document.getElementById('progress-container').style.display = "none";
+        
         const btn = document.getElementById('action-btn');
         btn.innerText = "🌿 スキャン開始"; btn.className = "btn scan-btn";
         document.getElementById('status').innerText = msg;
+
         const script = document.getElementById('yahoo-script');
         if (script) script.remove();
     }
@@ -116,12 +119,14 @@
         document.getElementById('progress-bar').style.width = "100%";
 
         setTimeout(() => {
-            if (!data.Feature) { stopScan("見つからなかったワン..."); return; }
+            if (!data.Feature || data.Feature.length === 0) {
+                stopScan("近くに見つからなかったワン...");
+                return;
+            }
 
             data.Feature.forEach((f, i) => {
                 setTimeout(() => {
                     const coords = f.Geometry.Coordinates.split(',');
-                    // 犬のアイコンを作成
                     const dogIcon = L.divIcon({
                         html: '🐶', className: 'dog-pin', iconSize: [30, 30], iconAnchor: [15, 15]
                     });
