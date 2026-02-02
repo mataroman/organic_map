@@ -1,136 +1,44 @@
 <!DOCTYPE html>
-<html lang="ja">
+<html>
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <meta name="apple-mobile-web-app-capable" content="yes">
-    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-    <title>Organic Hunter ✨</title>
-    
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Test Scan</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.css" />
     <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.js"></script>
-
     <style>
-        :root { --main-green: #2e7d32; --accent-orange: #f39c12; }
-        body { margin: 0; padding: 0; height: 100dvh; font-family: 'Helvetica Neue', Arial, sans-serif; background: #f4f7f4; overflow: hidden; }
-        
-        #map { width: 100%; height: 100%; position: absolute; z-index: 1; }
-        
-        /* ターゲットマーク（奥様が操作しやすいよう可愛く） */
-        .crosshair {
-            position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
-            z-index: 2000; pointer-events: none; color: var(--main-green);
-            font-size: 40px; text-shadow: 0 0 10px white;
-        }
-
-        .ui-panel {
-            position: fixed; bottom: 30px; left: 0; right: 0;
-            z-index: 3000; text-align: center; pointer-events: none;
-        }
-        
-        .scan-btn {
-            background: linear-gradient(135deg, #43a047, #2e7d32);
-            color: white; border: none; padding: 16px 40px;
-            border-radius: 50px; font-weight: bold; font-size: 1.2rem;
-            box-shadow: 0 8px 20px rgba(0,0,0,0.3); 
-            cursor: pointer; pointer-events: auto;
-            transition: all 0.2s; -webkit-appearance: none;
-        }
-        .scan-btn:active { transform: scale(0.92); box-shadow: 0 4px 10px rgba(0,0,0,0.2); }
-
-        #status {
-            background: rgba(255,255,255,0.95); margin-top: 15px;
-            padding: 8px 20px; border-radius: 30px; font-size: 0.9rem;
-            display: inline-block; color: #333; font-weight: bold;
-            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
-        }
-
-        /* ポップアップのカスタマイズ */
-        .leaflet-popup-content-wrapper { border-radius: 15px; padding: 5px; }
-        .shop-card { text-align: center; min-width: 180px; }
-        .shop-card b { font-size: 1.2rem; color: var(--main-green); display: block; margin-bottom: 10px; }
-        .btn-group { display: flex; flex-direction: column; gap: 8px; }
-        .info-btn { 
-            background: #e3f2fd; color: #1976d2; padding: 8px; 
-            text-decoration: none; border-radius: 8px; font-size: 0.8rem; font-weight: bold;
-        }
-        .nav-btn { 
-            background: var(--accent-orange); color: white; padding: 10px; 
-            text-decoration: none; border-radius: 8px; font-size: 0.9rem; font-weight: bold;
-        }
+        body { margin: 0; height: 100vh; display: flex; flex-direction: column; }
+        #map { flex: 1; }
+        .ui { position: fixed; bottom: 20px; width: 100%; text-align: center; z-index: 1000; }
+        button { padding: 15px 30px; background: #2e7d32; color: white; border-radius: 30px; border: none; font-weight: bold; }
     </style>
 </head>
 <body>
-
-<div id="map">
-    <div class="crosshair">✨</div>
-</div>
-
-<div class="ui-panel">
-    <button class="scan-btn" onclick="scanAtCenter()">🌿 素敵な店を探す</button><br>
-    <div id="status">地図を動かして「✨」を合わせてね</div>
-</div>
+    <div id="map"></div>
+    <div class="ui"><button onclick="simpleScan()">まずはスキャンテスト！</button></div>
 
 <script>
-    // 1. 地図のセットアップ
-    var map = L.map('map', { zoomControl: false }).setView([34.811, 135.341], 15);
-    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-        attribution: '© OpenStreetMap'
-    }).addTo(map);
+    var map = L.map('map').setView([34.811, 135.341], 15);
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
 
-    // 2. 最初に現在地へ優しく移動
-    navigator.geolocation.getCurrentPosition(pos => {
-        map.flyTo([pos.coords.latitude, pos.coords.longitude], 15, { duration: 2 });
-    });
-
-    // 3. スキャン実行（Overpass API 冗長化対応）
-    async function scanAtCenter() {
-        const status = document.getElementById('status');
+    async function simpleScan() {
         const center = map.getCenter();
-        status.innerText = "探し回っています...🔭";
+        alert("スキャンを開始します。中心座標: " + center.lat + ", " + center.lng);
 
-        // 検索キーワードを「奥様好み」に特化
-        const query = `[out:json][timeout:20];(
-            node["shop"~"organic|health_food|confectionery"](around:3000,${center.lat},${center.lng});
-            node["name"~"有機|自然食品|産直|オーガニック|無添加|農園"](around:3000,${center.lat},${center.lng});
-        );out;`;
-        
+        // 検索条件を「付近にある全ての店」に極限まで簡略化
+        const query = `[out:json][timeout:10];node["shop"](around:1000,${center.lat},${center.lng});out;`;
+        const url = `https://overpass-api.de/api/interpreter?data=${encodeURIComponent(query)}`;
+
         try {
-            const res = await fetch(`https://overpass.kumi.systems/api/interpreter?data=${encodeURIComponent(query)}`);
+            const res = await fetch(url);
             const data = await res.json();
-            
-            if (!data.elements || data.elements.length === 0) {
-                status.innerText = "この辺にはまだ見つからないみたい...😢";
-                return;
-            }
+            alert(data.elements.length + "件のお店を見つけました！");
 
-            status.innerText = "見つけました！ ➔ " + data.elements.length + "件";
-            
             data.elements.forEach(el => {
-                const name = el.tags.name || "素敵なお店";
-                const googleSearch = `https://www.google.com/search?q=${encodeURIComponent(name)}+オーガニック+公式サイト`;
-                const googleImg = `https://www.google.com/search?q=${encodeURIComponent(name)}+店内+写真&tbm=isch`;
-
-                const greenIcon = L.icon({
-                    iconUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-green.png',
-                    iconSize: [25, 41], iconAnchor: [12, 41], popupAnchor: [1, -34]
-                });
-
-                const content = `
-                    <div class="shop-card">
-                        <b>${name}</b>
-                        <div class="btn-group">
-                            <a href="${googleSearch}" target="_blank" class="info-btn">🔍 公式HP・口コミを見る</a>
-                            <a href="${googleImg}" target="_blank" class="info-btn">📸 お店の雰囲気を見る</a>
-                            <a href="https://www.google.com/maps/dir/?api=1&destination=${el.lat},${el.lon}" target="_blank" class="nav-btn">🚗 ここへ行く</a>
-                        </div>
-                    </div>
-                `;
-
-                L.marker([el.lat, el.lon], {icon: greenIcon}).addTo(map).bindPopup(content);
+                L.marker([el.lat, el.lon]).addTo(map).bindPopup(el.tags.name || "お店");
             });
         } catch (e) {
-            status.innerText = "通信エラー。もう一度スキャンしてね";
+            alert("通信エラーが発生しました。Wi-Fiを切って試してみてください。");
         }
     }
 </script>
