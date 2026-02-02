@@ -1,35 +1,109 @@
 <!DOCTYPE html>
-<html>
+<html lang="ja">
 <head>
     <meta charset="UTF-8">
-    <title>Map Test</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Organic Map</title>
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <style>
-        body { margin: 0; padding: 0; }
+        body { margin: 0; padding: 0; font-family: sans-serif; }
         #map { height: 100vh; width: 100vw; }
-        #btn { position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%); z-index: 1000; padding: 15px 30px; background: orange; border: none; border-radius: 10px; font-weight: bold; }
+        .control-panel {
+            position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%);
+            z-index: 1000; width: 90%; max-width: 400px; text-align: center;
+        }
+        #scan-btn {
+            background: #2e7d32; color: white; border: none; padding: 18px 0;
+            width: 100%; border-radius: 50px; font-weight: bold; font-size: 1.1rem;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.3); cursor: pointer; transition: 0.2s;
+        }
+        #scan-btn:active { transform: scale(0.95); background: #1b5e20; }
+        #status {
+            margin-top: 10px; background: rgba(255,255,255,0.9);
+            padding: 5px 15px; border-radius: 20px; font-size: 0.8rem; display: inline-block;
+        }
     </style>
 </head>
 <body>
-    <div id="map"></div>
-    <button id="btn" onclick="go()">📍 現在地へ飛ぶ</button>
 
-    <script>
-        // 地図の初期化
-        var map = L.map('map').setView([35.681, 139.767], 13);
-        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
+<div id="map"></div>
+<div class="control-panel">
+    <button id="scan-btn" onclick="startScan()">📍 周辺のショップをスキャン</button>
+    <div id="status">準備完了</div>
+</div>
 
-        function go() {
-            navigator.geolocation.getCurrentPosition(function(pos) {
-                var lat = pos.coords.latitude;
-                var lon = pos.coords.longitude;
-                map.setView([lat, lon], 15);
-                L.marker([lat, lon]).addTo(map).bindPopup("現在地").openPopup();
-            }, function(err) {
-                alert("GPSエラー: " + err.message);
-            });
-        }
-    </script>
+<script>
+    // 日本全体を表示してスタート
+    const map = L.map('map').setView([35.68, 139.76], 5);
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
+
+    function startScan() {
+        const status = document.getElementById('status');
+        const btn = document.getElementById('scan-btn');
+        
+        status.innerText = "位置情報を取得中...";
+        btn.disabled = true;
+
+        navigator.geolocation.getCurrentPosition(function(pos) {
+            const lat = pos.coords.latitude;
+            const lon = pos.coords.longitude;
+            
+            map.setView([lat, lon], 14);
+            L.marker([lat, lon]).addTo(map).bindPopup("<b>あなたの現在地</b>").openPopup();
+
+            status.innerText = "周辺5kmのオーガニック店を検索中...";
+
+            // 無料の地図データベース(Overpass API)から店舗を抽出
+            const query = `[out:json];node["shop"~"organic|health_food"](around:5000,${lat},${lon});out;`;
+            const url = `https://overpass-api.de/api/interpreter?data=${encodeURIComponent(query)}`;
+
+            fetch(url)
+                .then(res => res.json())
+                .then(data => {
+                    btn.disabled = false;
+                    if (data.elements.length === 0) {
+                        status.innerText = "付近に登録店舗が見つかりませんでした";
+                        return;
+                    }
+                    
+                    status.innerText = `${data.elements.length}軒の店舗を発見！`;
+                    
+                    data.elements.forEach(shop => {
+                        const name = shop.tags.name || "有機製品取り扱い店";
+                        const shopLat = shop.lat;
+                        const shopLon = shop.lon;
+                        
+                        // 緑色のピンを作成
+                        const greenPin = L.icon({
+                            iconUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-green.png',
+                            shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/0.7.7/images/marker-shadow.png',
+                            iconSize: [25, 41], iconAnchor: [12, 41], popupAnchor: [1, -34], shadowSize: [41, 41]
+                        });
+
+                        L.marker([shopLat, shopLon], {icon: greenPin}).addTo(map)
+                            .bindPopup(`
+                                <div style="text-align:center;">
+                                    <b>${name}</b><br><br>
+                                    <a href="https://www.google.com/maps/dir/?api=1&destination=${shopLat},${shopLon}" 
+                                       target="_blank" 
+                                       style="background:#f39c12;color:white;padding:8px 12px;text-decoration:none;border-radius:5px;font-size:12px;">
+                                       Googleマップでナビ
+                                    </a>
+                                </div>
+                            `);
+                    });
+                })
+                .catch(err => {
+                    status.innerText = "検索エラー（サーバー混雑中）";
+                    btn.disabled = false;
+                });
+
+        }, function(err) {
+            status.innerText = "GPSエラー: 許可を確認してください";
+            btn.disabled = false;
+        }, { enableHighAccuracy: true });
+    }
+</script>
 </body>
 </html>
