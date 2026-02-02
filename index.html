@@ -7,10 +7,9 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.css" />
     <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.js"></script>
     <style>
-        :root { --main-green: #2e7d32; --stop-red: #c62828; }
+        :root { --main-green: #2e7d32; }
         body { margin: 0; padding: 0; height: 100dvh; font-family: sans-serif; background: #000; overflow: hidden; }
         #map { width: 100%; height: 100%; position: absolute; z-index: 1; }
-        
         .dog-banner {
             position: fixed; top: 15px; left: 15px; z-index: 4000;
             background: white; padding: 5px; border-radius: 50px;
@@ -19,21 +18,9 @@
         }
         .dog-photo { width: 50px; height: 50px; border-radius: 50%; object-fit: cover; }
         .dog-msg { padding: 0 15px 0 10px; font-weight: bold; font-size: 0.85rem; color: #333; min-width: 140px; }
-
         .ui { position: fixed; bottom: 30px; left: 0; right: 0; z-index: 3000; text-align: center; }
-        #status { 
-            background: rgba(255,255,255,0.95); padding: 8px 20px; 
-            border-radius: 25px; font-size: 0.85rem; display: inline-block; 
-            font-weight: bold; margin-bottom: 10px; color: #333; 
-        }
-        .btn { 
-            color: white; border: none; padding: 18px 45px; border-radius: 50px; 
-            font-weight: bold; font-size: 1.2rem; cursor: pointer; min-width: 240px; 
-            box-shadow: 0 5px 20px rgba(0,0,0,0.5); 
-        }
-        .scan-btn { background: var(--main-green); }
-        .stop-btn { background: var(--stop-red); }
-
+        #status { background: rgba(255,255,255,0.95); padding: 8px 20px; border-radius: 25px; font-size: 0.85rem; display: inline-block; font-weight: bold; margin-bottom: 10px; color: #333; }
+        .btn { color: white; background: var(--main-green); border: none; padding: 18px 45px; border-radius: 50px; font-weight: bold; font-size: 1.2rem; cursor: pointer; box-shadow: 0 5px 20px rgba(0,0,0,0.5); }
         .mataro-pin { width: 50px !important; height: 50px !important; border: 3px solid #fff; border-radius: 50%; object-fit: cover; box-shadow: 0 3px 10px rgba(0,0,0,0.4); }
     </style>
 </head>
@@ -47,80 +34,43 @@
 <div id="map"></div>
 
 <div class="ui">
-    <div id="status">周辺をリサーチするさ</div><br>
-    <button id="action-btn" class="btn scan-btn" onclick="toggleScan()">🌿 スキャン開始さ</button>
+    <div id="status">周辺の店舗情報をサーチするさ</div><br>
+    <button class="btn" onclick="startScan()">🌿 スキャンを開始するさ</button>
 </div>
 
 <script>
     const appid = 'dmVyPTIwMjUwNyZpZD1YcTQ2bjJjcU1rJmhhc2g9TlRRNVpURTJZakEyTVRKbVl6TTVZUQ';
-    
-    let isScanning = false;
-    let markers = [];
-    let searchCircle = null;
-
     const map = L.map('map', { zoomControl: false }).setView([34.811, 135.341], 15);
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
 
-    function toggleScan() {
-        if (isScanning) {
-            stopScan("リサーチを停止したさ");
-        } else {
-            startScan();
-        }
-    }
+    let markers = [];
+    let searchCircle = null;
 
     function startScan() {
-        isScanning = true;
         markers.forEach(m => map.removeLayer(m));
         markers = [];
+        document.getElementById('status').innerText = "広域スキャンを実行中さ...";
         
-        document.getElementById('dog-msg-text').innerText = "いい匂いを探してみるさ！";
-        document.getElementById('status').innerText = "データを照合中さ...";
-        document.getElementById('action-btn').innerText = "🛑 停止するさ";
-        document.getElementById('action-btn').className = "btn stop-btn";
-
         const center = map.getCenter();
         
-        // 【復活】サーチエリアの円を確実に描画するさ
+        // 【重要】サーチエリアの円を確実に再描画するさ
         if (searchCircle) map.removeLayer(searchCircle);
-        searchCircle = L.circle(center, { 
-            radius: 10000, 
-            color: '#2e7d32', 
-            fillColor: '#2e7d32', 
-            fillOpacity: 0.15, 
-            weight: 2 
-        }).addTo(map);
+        searchCircle = L.circle(center, { radius: 10000, color: '#2e7d32', fillOpacity: 0.15 }).addTo(map);
 
-        // 【復活】最も安定して48件以上出ていた「自然食品」一発検索さ
-        const url = `https://map.yahooapis.jp/search/local/V1/localSearch?appid=${appid}&lat=${center.lat}&lon=${center.lng}&dist=10&query=${encodeURIComponent('自然食品')}&results=50&output=json&callback=handleResponse`;
+        // 【汎用性最大化】
+        // 特定のワードに絞りすぎず、オーガニックと自然食品の両方を拾う「最強の並列検索」さ
+        const query = encodeURIComponent('オーガニック OR 自然食品');
+        const url = `https://map.yahooapis.jp/search/local/V1/localSearch?appid=${appid}&lat=${center.lat}&lon=${center.lng}&dist=10&query=${query}&results=50&output=json&callback=handleResponse`;
 
         const script = document.createElement('script');
         script.src = url;
         script.id = "api-script";
         document.body.appendChild(script);
-
-        setTimeout(() => {
-            if(isScanning && markers.length === 0) {
-                stopScan("応答が見つからないさ。再試行してくれさ");
-            }
-        }, 10000);
-    }
-
-    function stopScan(msg) {
-        isScanning = false;
-        document.getElementById('status').innerText = msg;
-        document.getElementById('action-btn').innerText = "🌿 スキャン開始さ";
-        document.getElementById('action-btn').className = "btn scan-btn";
-        if (searchCircle) { map.removeLayer(searchCircle); searchCircle = null; }
-        const oldScript = document.getElementById('api-script');
-        if (oldScript) oldScript.remove();
     }
 
     window.handleResponse = function(data) {
-        if (!isScanning) return;
-        
         if (!data.Feature || data.Feature.length === 0) {
-            stopScan("店舗が見つからないさ");
+            document.getElementById('status').innerText = "該当する店舗が見当たらないさ";
             return;
         }
 
@@ -131,13 +81,13 @@
             }).addTo(map).bindPopup(`
                 <b>${f.Name}</b><br>
                 <small>${f.Property.Address || ""}</small><br>
-                <a href="https://www.google.com/search?q=${encodeURIComponent(f.Name + ' ' + (f.Property.Address || ""))}" target="_blank" style="color:#1a73e8; font-weight:bold;">詳細を見るさ</a>
+                <a href="https://www.google.com/search?q=${encodeURIComponent(f.Name + ' ' + (f.Property.Address || ""))}" target="_blank" style="color:blue; font-weight:bold;">詳細を確認するさ</a>
             `);
             markers.push(m);
         });
 
+        document.getElementById('status').innerText = data.Feature.length + "件見つかったそうさ！";
         document.getElementById('dog-msg-text').innerText = "見つけたさ！";
-        stopScan(data.Feature.length + "件見つかったそうさ！");
     };
 </script>
 </body>
