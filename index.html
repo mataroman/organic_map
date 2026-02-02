@@ -43,19 +43,19 @@
 
 <div class="dog-banner">
     <img src="mataro.jpg" class="dog-photo" onerror="this.src='https://cdn-icons-png.flaticon.com/512/616/616408.png'">
-    <div class="dog-msg">またろうが見つけるワン！</div>
+    <div class="dog-msg">マー太郎が見つけるのさ！</div>
 </div>
 
 <div id="map"></div>
 
 <div class="ui">
-    <div id="status">宝塚をクンクンするよ</div>
+    <div id="status">宝塚をクンクンするのさ</div>
     <div id="progress-container"><div id="progress-bar"></div></div>
     <button id="action-btn" class="btn scan-btn" onclick="toggleScan()">🌿 スキャン開始</button>
 </div>
 
 <script>
-    const appid = 'dj00aiZpPVhxNDZuMmNxTWtNayZzPWNvbnN1bWVyc2VjcmV0Jng9NTI-';
+    const appid = 'dmVyPTIwMjUwNyZpZD1YcTQ2bjJjcU1rJmhhc2g9TlRRNVpURTJZakEyTVRKbVl6TTVZUQ';
     let isScanning = false;
     let timeoutTimer = null;
     let pTimer = null;
@@ -63,7 +63,11 @@
     const map = L.map('map', { zoomControl: false }).setView([34.811, 135.341], 15);
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
 
-    function toggleScan() { if (isScanning) { stopScan("止めたワン"); } else { startScan(); } }
+    navigator.geolocation.getCurrentPosition(pos => {
+        map.flyTo([pos.coords.latitude, pos.coords.longitude], 15);
+    });
+
+    function toggleScan() { if (isScanning) { stopScan("止めるのさ"); } else { startScan(); } }
 
     function startScan() {
         isScanning = true;
@@ -73,21 +77,19 @@
         const btn = document.getElementById('action-btn');
         const bar = document.getElementById('progress-bar');
         
-        btn.innerText = "🛑 停止する"; btn.className = "btn stop-btn";
-        document.getElementById('status').innerText = "一生懸命、探索中...";
+        btn.innerText = "🛑 停止するさ"; btn.className = "btn stop-btn";
+        document.getElementById('status').innerText = "マー太郎が探索中さ...";
 
-        // 1. 進捗バーを5秒かけて100%に持っていくアニメーション
         bar.style.width = "0%";
         let pVal = 0;
         pTimer = setInterval(() => {
-            pVal += 2;
+            pVal += 1;
             if(pVal <= 98) bar.style.width = pVal + "%";
         }, 100);
 
-        // 2. 【重要】5秒経っても反応がなければ強制終了（タイムアウト）
         timeoutTimer = setTimeout(() => {
-            if (isScanning) stopScan("反応がないみたいだワン...😢");
-        }, 5000);
+            if (isScanning) stopScan("反応がないみたいさ...😢");
+        }, 10000);
 
         const center = map.getCenter();
         const query = encodeURIComponent('オーガニック 自然食品 無添加 産直');
@@ -107,7 +109,7 @@
         document.getElementById('progress-container').style.display = "none";
         
         const btn = document.getElementById('action-btn');
-        btn.innerText = "🌿 スキャン開始"; btn.className = "btn scan-btn";
+        btn.innerText = "🌿 スキャン開始さ"; btn.className = "btn scan-btn";
         document.getElementById('status').innerText = msg;
 
         const script = document.getElementById('yahoo-script');
@@ -120,7 +122,7 @@
 
         setTimeout(() => {
             if (!data.Feature || data.Feature.length === 0) {
-                stopScan("近くに見つからなかったワン...");
+                stopScan("近くに見つからなかったのさ...");
                 return;
             }
 
@@ -132,10 +134,10 @@
                     });
 
                     L.marker([coords[1], coords[0]], {icon: dogIcon}).addTo(map)
-                        .bindPopup(`<b>${f.Name}</b><br><a href="https://www.google.com/search?q=${f.Name}" target="_blank">詳細</a>`);
+                        .bindPopup(`<b>${f.Name}</b><br><a href="https://www.google.com/search?q=${f.Name}" target="_blank">詳細さ</a>`);
                 }, i * 50);
             });
-            stopScan(data.Feature.length + "件見つけたワン！");
+            stopScan(data.Feature.length + "件見つけたのさ！");
         }, 300);
     };
 </script>
