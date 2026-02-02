@@ -7,7 +7,7 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.css" />
     <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.js"></script>
     <style>
-        :root { --main-green: #2e7d32; }
+        :root { --main-green: #2e7d32; --stop-red: #c62828; }
         body { margin: 0; padding: 0; height: 100dvh; font-family: sans-serif; background: #000; overflow: hidden; }
         #map { width: 100%; height: 100%; position: absolute; z-index: 1; }
         .dog-banner {
@@ -28,14 +28,14 @@
 
 <div class="dog-banner">
     <img src="mataro.jpg" class="dog-photo" onerror="this.src='https://cdn-icons-png.flaticon.com/512/616/616408.png'">
-    <div id="dog-msg-text" class="dog-msg">クンクン…準備いいさ？</div>
+    <div id="dog-msg-text" class="dog-msg">クンクン…今度こそさ！</div>
 </div>
 
 <div id="map"></div>
 
 <div class="ui">
-    <div id="status">周辺の店舗情報をサーチするさ</div><br>
-    <button class="btn" onclick="startScan()">🌿 スキャンを開始するさ</button>
+    <div id="status">全域をスキャンするさ</div><br>
+    <button class="btn" onclick="startScan()">🌿 スキャン開始さ</button>
 </div>
 
 <script>
@@ -49,18 +49,16 @@
     function startScan() {
         markers.forEach(m => map.removeLayer(m));
         markers = [];
-        document.getElementById('status').innerText = "広域スキャンを実行中さ...";
+        document.getElementById('status').innerText = "感度最大でサーチ中さ...";
         
         const center = map.getCenter();
-        
-        // 【重要】サーチエリアの円を確実に再描画するさ
         if (searchCircle) map.removeLayer(searchCircle);
         searchCircle = L.circle(center, { radius: 10000, color: '#2e7d32', fillOpacity: 0.15 }).addTo(map);
 
-        // 【汎用性最大化】
-        // 特定のワードに絞りすぎず、オーガニックと自然食品の両方を拾う「最強の並列検索」さ
-        const query = encodeURIComponent('オーガニック OR 自然食品');
-        const url = `https://map.yahooapis.jp/search/local/V1/localSearch?appid=${appid}&lat=${center.lat}&lon=${center.lng}&dist=10&query=${query}&results=50&output=json&callback=handleResponse`;
+        // 【汎用性の極致】
+        // 業種コード gc=0116001 (自然食品店) をベースに、
+        // クエリをシンプルに「オーガニック」単体、または空に近いくらい広げるさ
+        const url = `https://map.yahooapis.jp/search/local/V1/localSearch?appid=${appid}&lat=${center.lat}&lon=${center.lng}&dist=10&query=${encodeURIComponent('オーガニック')}&results=50&output=json&callback=handleResponse`;
 
         const script = document.createElement('script');
         script.src = url;
@@ -69,8 +67,11 @@
     }
 
     window.handleResponse = function(data) {
+        // デバッグ用：通信が成功しているかチェックさ
+        console.log("Response Data:", data);
+
         if (!data.Feature || data.Feature.length === 0) {
-            document.getElementById('status').innerText = "該当する店舗が見当たらないさ";
+            document.getElementById('status').innerText = "店舗データが応答しないさ。再読込してくれさ";
             return;
         }
 
@@ -87,7 +88,7 @@
         });
 
         document.getElementById('status').innerText = data.Feature.length + "件見つかったそうさ！";
-        document.getElementById('dog-msg-text').innerText = "見つけたさ！";
+        document.getElementById('dog-msg-text').innerText = "これならどうださ！";
     };
 </script>
 </body>
