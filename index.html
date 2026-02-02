@@ -7,21 +7,37 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.css" />
     <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.js"></script>
     <style>
-        :root { --main-green: #2e7d32; }
-        body { margin: 0; padding: 0; height: 100dvh; font-family: sans-serif; background: #000; overflow: hidden; }
+        :root { --main-green: #2e7d32; --accent: #1a73e8; }
+        body { margin: 0; padding: 0; height: 100dvh; font-family: sans-serif; background: #f8fcf8; overflow: hidden; }
         #map { width: 100%; height: 100%; position: absolute; z-index: 1; }
+        
+        /* マー太郎バナー（常に最新の語尾で案内さ） */
         .dog-banner {
             position: fixed; top: 15px; left: 15px; z-index: 4000;
-            background: white; padding: 5px; border-radius: 50px;
-            display: flex; align-items: center; box-shadow: 0 4px 10px rgba(0,0,0,0.3);
-            border: 2px solid var(--main-green);
+            background: white; padding: 6px; border-radius: 50px;
+            display: flex; align-items: center; box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+            border: 1px solid var(--main-green);
         }
-        .dog-photo { width: 50px; height: 50px; border-radius: 50%; object-fit: cover; }
-        .dog-msg { padding: 0 15px 0 10px; font-weight: bold; font-size: 0.85rem; color: #333; min-width: 140px; }
-        .ui { position: fixed; bottom: 30px; left: 0; right: 0; z-index: 3000; text-align: center; }
-        .btn { color: white; background: var(--main-green); border: none; padding: 18px 45px; border-radius: 50px; font-weight: bold; font-size: 1.2rem; cursor: pointer; box-shadow: 0 5px 20px rgba(0,0,0,0.5); }
-        #status { background: rgba(255,255,255,0.95); padding: 8px 20px; border-radius: 25px; font-size: 0.85rem; display: inline-block; font-weight: bold; margin-bottom: 10px; color: #333; }
-        .mataro-pin { width: 50px !important; height: 50px !important; border: 3px solid #fff; border-radius: 50%; object-fit: cover; }
+        .dog-photo { width: 48px; height: 48px; border-radius: 50%; object-fit: cover; }
+        .dog-msg { padding: 0 15px 0 10px; font-weight: bold; font-size: 0.85rem; color: #2e7d32; min-width: 140px; }
+
+        /* UIパネル（プロ仕様の文言さ） */
+        .ui { position: fixed; bottom: 35px; left: 0; right: 0; z-index: 3000; text-align: center; }
+        #status { 
+            background: rgba(255,255,255,0.95); padding: 8px 22px; border-radius: 25px; 
+            font-size: 0.85rem; display: inline-block; font-weight: bold; margin-bottom: 10px; 
+            color: #333; box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        }
+        .btn { 
+            color: white; background: var(--main-green); border: none; padding: 16px 45px; 
+            border-radius: 50px; font-weight: bold; font-size: 1.1rem; cursor: pointer; 
+            box-shadow: 0 5px 15px rgba(0,0,0,0.3); transition: 0.2s;
+        }
+        .btn:active { transform: scale(0.96); }
+
+        .mataro-pin { width: 52px !important; height: 52px !important; border: 3px solid #fff; border-radius: 50%; box-shadow: 0 3px 10px rgba(0,0,0,0.3); }
+        .popup-name { font-weight: bold; color: var(--main-green); font-size: 1rem; }
+        .popup-link { display: inline-block; margin-top: 8px; color: var(--accent); font-weight: bold; text-decoration: none; }
     </style>
 </head>
 <body>
@@ -34,8 +50,8 @@
 <div id="map"></div>
 
 <div class="ui">
-    <div id="status">あの頃の鼻を取り戻したさ！</div><br>
-    <button class="btn" onclick="startScan()">🌿 スキャン開始さ</button>
+    <div id="status">周辺の店舗情報をリサーチするさ</div><br>
+    <button class="btn" onclick="startScan()">🌿 情報をスキャンするさ</button>
 </div>
 
 <script>
@@ -48,13 +64,14 @@
     function startScan() {
         markers.forEach(m => map.removeLayer(m));
         markers = [];
-        document.getElementById('status').innerText = "全開でクンクンしてるさ！";
+        document.getElementById('status').innerText = "データベースを照合中さ...";
+        document.getElementById('dog-msg-text').innerText = "いい店を見つけるそうさ！";
 
         const center = map.getCenter();
         
-        // 【復刻・最強クエリ】
-        // 下手に単語を増やさず、一番安定していた「自然食品」一発勝負さ！
-        const url = `https://map.yahooapis.jp/search/local/V1/localSearch?appid=${appid}&lat=${center.lat}&lon=${center.lng}&dist=10&query=${encodeURIComponent('自然食品')}&results=50&output=json&callback=handleResponse`;
+        // 【核心】オーガニック、有機、ORGANICを優先。これでただの食品店を排除さ
+        const query = encodeURIComponent('オーガニック OR 有機 OR ORGANIC');
+        const url = `https://map.yahooapis.jp/search/local/V1/localSearch?appid=${appid}&lat=${center.lat}&lon=${center.lng}&dist=10&query=${query}&results=50&output=json&callback=handleResponse`;
 
         const script = document.createElement('script');
         script.src = url;
@@ -64,20 +81,23 @@
 
     window.handleResponse = function(data) {
         if (!data.Feature || data.Feature.length === 0) {
-            document.getElementById('status').innerText = "あれ…見当たらないさ。場所を変えてみるさ";
+            document.getElementById('status').innerText = "該当する店舗が見当たらないさ";
             return;
         }
 
         data.Feature.forEach((f) => {
             const coords = f.Geometry.Coordinates.split(',');
             const m = L.marker([coords[1], coords[0]], {
-                icon: L.icon({ iconUrl: 'mataro.jpg', className: 'mataro-pin', iconSize: [50, 50], iconAnchor: [25, 25] })
-            }).addTo(map).bindPopup(`<b>${f.Name}</b><br><small>${f.Property.Address || ""}</small>`);
+                icon: L.icon({ iconUrl: 'mataro.jpg', className: 'mataro-pin', iconSize: [52, 52], iconAnchor: [26, 26] })
+            }).addTo(map).bindPopup(`
+                <b class="popup-name">${f.Name}</b><br>
+                <small>${f.Property.Address || ""}</small><br>
+                <a href="https://www.google.com/search?q=${encodeURIComponent(f.Name + ' ' + (f.Property.Address || ""))}" target="_blank" class="popup-link">詳細情報を確認するさ</a>
+            `);
             markers.push(m);
         });
 
-        document.getElementById('dog-msg-text').innerText = "これさ！この匂いさ！";
-        document.getElementById('status').innerText = data.Feature.length + "件見つかったそうさ！";
+        document.getElementById('status').innerText = data.Feature.length + "件の候補を表示したそうさ！";
     };
 </script>
 </body>
