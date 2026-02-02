@@ -10,7 +10,7 @@
         :root { --main-green: #2e7d32; --stop-red: #c62828; }
         body { margin: 0; padding: 0; height: 100dvh; font-family: sans-serif; overflow: hidden; background: #000; }
         #map { width: 100%; height: 100%; position: absolute; z-index: 1; transition: 0.3s; }
-        .map-locked { opacity: 0.7; filter: brightness(0.8); pointer-events: none; }
+        .map-locked { opacity: 0.8; filter: brightness(0.7); pointer-events: none; }
 
         .dog-banner {
             position: fixed; top: 15px; left: 15px; z-index: 4000;
@@ -18,7 +18,7 @@
             display: flex; align-items: center; box-shadow: 0 4px 10px rgba(0,0,0,0.2);
             border: 2px solid var(--main-green);
         }
-        .dog-photo { width: 50px; height: 50px; border-radius: 50%; object-fit: cover; }
+        .dog-photo { width: 50px; height: 50px; border-radius: 50%; object-fit: cover; border:1px solid #ccc; }
         .dog-msg { padding: 0 15px 0 10px; font-weight: bold; font-size: 0.8rem; color: #333; }
 
         .ui { position: fixed; bottom: 30px; left: 0; right: 0; z-index: 3000; text-align: center; }
@@ -31,20 +31,19 @@
         .stop-btn { background: var(--stop-red); }
         
         #progress-container {
-            width: 70%; max-width: 250px; height: 8px; background: rgba(255,255,255,0.5);
+            width: 70%; max-width: 250px; height: 10px; background: rgba(255,255,255,0.3);
             margin: 15px auto; border-radius: 10px; overflow: hidden; display: none;
         }
         #progress-bar { width: 0%; height: 100%; background: #fff; transition: width 0.1s linear; }
 
         #status {
             background: rgba(255,255,255,0.95); padding: 8px 20px;
-            border-radius: 25px; font-size: 0.9rem; display: inline-block; font-weight: bold;
+            border-radius: 25px; font-size: 0.9rem; display: inline-block; font-weight: bold; margin-bottom: 5px;
         }
-        /* マー太郎ピンのスタイル */
         .mataro-pin {
-            width: 45px !important; height: 45px !important;
-            border: 3px solid white; border-radius: 50%;
-            box-shadow: 0 0 10px rgba(0,0,0,0.5); object-fit: cover;
+            width: 50px !important; height: 50px !important;
+            border: 3px solid #fff; border-radius: 50%;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.5); object-fit: cover;
         }
     </style>
 </head>
@@ -58,13 +57,12 @@
 <div id="map"></div>
 
 <div class="ui">
-    <div id="status">マー太郎が探してくれるさ</div>
+    <div id="status">宝塚のオーガニックを探すのさ</div>
     <div id="progress-container"><div id="progress-bar"></div></div>
     <button id="action-btn" class="btn scan-btn" onclick="toggleScan()">🌿 スキャン開始</button>
 </div>
 
 <script>
-    // APIキー（もしこれでもダメなら、Yahooのデベロッパーネットワークで「ドメイン制限」を確認してほしいさ）
     const appid = 'dmVyPTIwMjUwNyZpZD1YcTQ2bjJjcU1rJmhhc2g9TlRRNVpURTJZakEyTVRKbVl6TTVZUQ';
     let isScanning = false;
     let pTimer = null;
@@ -74,11 +72,14 @@
     const map = L.map('map', { zoomControl: false }).setView([34.811, 135.341], 15);
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
 
-    function toggleScan() { if (isScanning) { stopScan("やめるのさ"); } else { startScan(); } }
+    // 最初は宝塚に強制セットさ（検証用）
+    map.setView([34.811, 135.341], 15);
+
+    function toggleScan() { if (isScanning) { stopScan("やめたのさ"); } else { startScan(); } }
 
     function startScan() {
         isScanning = true;
-        // 古いピンを消すさ
+        // 以前のピンを掃除
         markers.forEach(m => map.removeLayer(m));
         markers = [];
         
@@ -89,28 +90,30 @@
         const bar = document.getElementById('progress-bar');
         
         btn.innerText = "🛑 止めるのさ"; btn.className = "btn stop-btn";
-        document.getElementById('status').innerText = "マー太郎が探索中さ...";
+        document.getElementById('status').innerText = "オーガニックプラザを探索中さ...";
 
+        // 地図の中心にスキャン範囲の円を表示
         const center = map.getCenter();
+        if (searchCircle) map.removeLayer(searchCircle);
         searchCircle = L.circle(center, {
-            radius: 5000, color: '#2e7d32', fillColor: '#2e7d32', fillOpacity: 0.1, weight: 2
+            radius: 3000, color: '#2e7d32', fillColor: '#2e7d32', fillOpacity: 0.3, weight: 3
         }).addTo(map);
 
         bar.style.width = "0%";
         let pVal = 0;
         pTimer = setInterval(() => {
-            pVal += 1;
-            if(pVal <= 99) bar.style.width = pVal + "%";
+            pVal += 2;
+            if(pVal <= 95) bar.style.width = pVal + "%";
         }, 100);
 
-        // 検索ワードをより強力なものにしたそうさ
-        const query = encodeURIComponent('オーガニック 自然食品');
+        // クエリをオーガニックプラザに絞ってテストさ
+        const query = encodeURIComponent('オーガニックプラザ 自然食品');
+        // Yahoo APIのURL。latとlonの順番を再確認したさ。
         const url = `https://map.yahooapis.jp/search/local/V1/localSearch?appid=${appid}&lat=${center.lat}&lon=${center.lng}&dist=5&query=${query}&output=json&results=20&callback=handleResponse`;
 
         const script = document.createElement('script');
         script.id = "yahoo-script";
         script.src = url;
-        script.onerror = () => stopScan("通信に失敗したそうさ。電波か設定を確認してくれさ");
         document.body.appendChild(script);
     }
 
@@ -120,41 +123,41 @@
         map.dragging.enable(); map.touchZoom.enable();
         document.getElementById('map').classList.remove('map-locked');
         document.getElementById('progress-container').style.display = "none";
-        if (searchCircle) { map.removeLayer(searchCircle); searchCircle = null; }
         document.getElementById('action-btn').innerText = "🌿 スキャン開始さ";
         document.getElementById('action-btn').className = "btn scan-btn";
         document.getElementById('status').innerText = msg;
         const script = document.getElementById('yahoo-script');
         if (script) script.remove();
+        // 円はあえて残さず、スキャン中だけ出るようにしたそうさ
+        if (searchCircle) { map.removeLayer(searchCircle); searchCircle = null; }
     }
 
     window.handleResponse = function(data) {
         if (!isScanning) return;
         document.getElementById('progress-bar').style.width = "100%";
 
-        if (!data.Feature || data.Feature.length === 0) {
-            stopScan("ここには店が見つからないそうさ...");
+        if (!data.Feature) {
+            stopScan("見つからなかったのさ。APIキーを再確認だそうさ");
             return;
         }
 
         data.Feature.forEach((f, i) => {
             setTimeout(() => {
                 const coords = f.Geometry.Coordinates.split(',');
-                // 【ここがポイント】マー太郎の顔をピンにするのさ
                 const mataroIcon = L.icon({
                     iconUrl: 'mataro.jpg',
                     className: 'mataro-pin',
-                    iconSize: [45, 45],
-                    iconAnchor: [22, 22],
-                    popupAnchor: [0, -20]
+                    iconSize: [50, 50],
+                    iconAnchor: [25, 25],
+                    popupAnchor: [0, -25]
                 });
 
                 const m = L.marker([coords[1], coords[0]], {icon: mataroIcon}).addTo(map)
                     .bindPopup(`<b>${f.Name}</b><br><a href="https://www.google.com/search?q=${f.Name}" target="_blank">詳細さ</a>`);
                 markers.push(m);
-            }, i * 100);
+            }, i * 150);
         });
-        setTimeout(() => stopScan(data.Feature.length + "件見つけたのさ！"), 1000);
+        setTimeout(() => stopScan(data.Feature.length + "件見つけたのさ！"), 1500);
     };
 </script>
 </body>
