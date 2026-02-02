@@ -24,7 +24,7 @@
         .scan-btn { background: var(--main-green); }
         .stop-btn { background: var(--stop-red); }
         #status { background: rgba(255,255,255,0.95); padding: 8px 20px; border-radius: 25px; font-size: 0.85rem; display: inline-block; font-weight: bold; margin-bottom: 5px; color: #333; }
-        .mataro-pin { width: 50px !important; height: 50px !important; border: 3px solid #fff; border-radius: 50%; object-fit: cover; }
+        .mataro-pin { width: 50px !important; height: 50px !important; border: 3px solid #fff; border-radius: 50%; object-fit: cover; box-shadow: 0 3px 10px rgba(0,0,0,0.4); }
     </style>
 </head>
 <body>
@@ -69,7 +69,7 @@
         
         const randomMsg = startMsgs[Math.floor(Math.random() * startMsgs.length)];
         document.getElementById('dog-msg-text').innerText = randomMsg;
-        document.getElementById('status').innerText = "探索中さ。ちょっと待っててくれさ";
+        document.getElementById('status').innerText = "あらゆるワードで嗅ぎ分け中さ...";
 
         document.getElementById('map').classList.add('map-locked');
         document.getElementById('action-btn').innerText = "🛑 停止するさ";
@@ -78,14 +78,13 @@
         const center = map.getCenter();
         if (searchCircle) map.removeLayer(searchCircle);
         searchCircle = L.circle(center, {
-            radius: 3000, color: '#2e7d32', fillColor: '#2e7d32', fillOpacity: 0.3, weight: 5
+            radius: 10000, color: '#2e7d32', fillColor: '#2e7d32', fillOpacity: 0.15, weight: 2
         }).addTo(map);
 
-        // APIリクエストの組み立て（最も成功率の高い形式）
-        const lat = center.lat;
-        const lon = center.lng;
-        // 検索ワードを「自然食品」に絞り、確実性を上げるさ
-        const url = `https://map.yahooapis.jp/search/local/V1/localSearch?appid=${appid}&lat=${lat}&lon=${lon}&dist=5&query=%E8%87%AA%E7%84%B6%E9%A3%9F%E5%93%81&output=json&callback=handleResponse`;
+        // 【改良】OR検索を使用してキーワードの網を最大化するさ
+        // 「オーガニック」「ORGANIC」「自然食品」「無添加」のどれかにヒットさせるさ
+        const queryKeywords = 'オーガニック OR ORGANIC OR 自然食品 OR 無添加';
+        const url = `https://map.yahooapis.jp/search/local/V1/localSearch?appid=${appid}&lat=${center.lat}&lon=${center.lng}&dist=10&query=${encodeURIComponent(queryKeywords)}&results=50&output=json&callback=handleResponse`;
 
         const script = document.createElement('script');
         script.src = url;
@@ -110,7 +109,6 @@
         if (oldScript) oldScript.remove();
     }
 
-    // グローバルに関数を定義して、APIからのコールバックを確実に受けるさ
     window.handleResponse = function(data) {
         if (!isScanning) return;
         
@@ -125,10 +123,11 @@
                 iconUrl: 'mataro.jpg',
                 className: 'mataro-pin',
                 iconSize: [50, 50],
-                iconAnchor: [25, 25]
+                iconAnchor: [25, 25],
+                popupAnchor: [0, -25]
             });
             const m = L.marker([coords[1], coords[0]], {icon: mataroIcon}).addTo(map)
-                .bindPopup(`<b>${f.Name}</b>`);
+                .bindPopup(`<b>${f.Name}</b><br><a href="https://www.google.com/search?q=${f.Name}" target="_blank">詳細さ</a>`);
             markers.push(m);
         });
         document.getElementById('dog-msg-text').innerText = "見つけたさ！";
