@@ -1,46 +1,113 @@
 <!DOCTYPE html>
-<html>
+<html lang="ja">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Test Scan</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <title>Organic Hunter ✨</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.css" />
     <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.js"></script>
     <style>
-        body { margin: 0; height: 100vh; display: flex; flex-direction: column; }
-        #map { flex: 1; }
-        .ui { position: fixed; bottom: 20px; width: 100%; text-align: center; z-index: 1000; }
-        button { padding: 15px 30px; background: #2e7d32; color: white; border-radius: 30px; border: none; font-weight: bold; }
+        :root { --main-green: #2e7d32; }
+        body { margin: 0; padding: 0; height: 100dvh; font-family: sans-serif; overflow: hidden; }
+        #map { width: 100%; height: 100%; position: absolute; }
+        .crosshair {
+            position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
+            z-index: 2000; pointer-events: none; font-size: 32px; filter: drop-shadow(0 0 2px white);
+        }
+        .ui { position: fixed; bottom: 30px; left: 0; right: 0; z-index: 3000; text-align: center; }
+        .scan-btn {
+            background: var(--main-green); color: white; border: none; padding: 16px 40px;
+            border-radius: 50px; font-weight: bold; font-size: 1.1rem; box-shadow: 0 4px 15px rgba(0,0,0,0.3);
+            cursor: pointer; -webkit-appearance: none;
+        }
+        #status {
+            background: rgba(255,255,255,0.9); margin-top: 10px; padding: 6px 15px;
+            border-radius: 20px; font-size: 0.85rem; display: inline-block; font-weight: bold;
+        }
+        .popup-card { text-align: center; padding: 5px; }
+        .popup-card b { font-size: 1.1rem; color: var(--main-green); }
+        .btn {
+            display: block; margin-top: 8px; padding: 10px; text-decoration: none;
+            border-radius: 5px; font-weight: bold; font-size: 0.9rem;
+        }
+        .hp-btn { background: #e3f2fd; color: #1976d2; }
+        .nav-btn { background: #f39c12; color: white; }
     </style>
 </head>
 <body>
-    <div id="map"></div>
-    <div class="ui"><button onclick="simpleScan()">まずはスキャンテスト！</button></div>
+
+<div id="map"><div class="crosshair">✨</div></div>
+<div class="ui">
+    <button class="scan-btn" onclick="yahooScan()">🌿 このエリアをスキャン</button><br>
+    <div id="status">地図を動かしてスキャンしてね</div>
+</div>
 
 <script>
-    var map = L.map('map').setView([34.811, 135.341], 15);
+    // 先ほど取得したID（デコード済みのもの）をここにセットしました
+    const appid = 'dj00aiZpPVhxNDZuMmNxTWtNayZzPWNvbnN1bWVyc2VjcmV0Jng9NTI-';
+
+    // 1. 地図初期化
+    var map = L.map('map', { zoomControl: false }).setView([34.811, 135.341], 15);
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
 
-    async function simpleScan() {
+    // 2. 現在地に移動
+    navigator.geolocation.getCurrentPosition(pos => {
+        map.flyTo([pos.coords.latitude, pos.coords.longitude], 15);
+    });
+
+    // 3. Yahoo! APIスキャン
+    async function yahooScan() {
+        const status = document.getElementById('status');
         const center = map.getCenter();
-        alert("スキャンを開始します。中心座標: " + center.lat + ", " + center.lng);
+        status.innerText = "スキャン中...";
 
-        // 検索条件を「付近にある全ての店」に極限まで簡略化
-        const query = `[out:json][timeout:10];node["shop"](around:1000,${center.lat},${center.lng});out;`;
-        const url = `https://overpass-api.de/api/interpreter?data=${encodeURIComponent(query)}`;
+        // CORS回避のため、Yahoo公式のJSONPまたはProxy的な手法が必要ですが、
+        // YOLP APIの仕様に合わせ、最も確実なパラメータでリクエストします
+        const query = encodeURIComponent('オーガニック 自然食品 無添加 産直');
+        const url = `https://map.yahooapis.jp/search/local/V1/localSearch?appid=${appid}&lat=${center.lat}&lon=${center.lng}&dist=3&query=${query}&output=json&results=20&callback=handleResponse`;
 
-        try {
-            const res = await fetch(url);
-            const data = await res.json();
-            alert(data.elements.length + "件のお店を見つけました！");
-
-            data.elements.forEach(el => {
-                L.marker([el.lat, el.lon]).addTo(map).bindPopup(el.tags.name || "お店");
-            });
-        } catch (e) {
-            alert("通信エラーが発生しました。Wi-Fiを切って試してみてください。");
-        }
+        // JSONP方式で呼び出し（CORSエラーを物理的に回避するエンジニアの技です）
+        const script = document.createElement('script');
+        script.src = url;
+        document.body.appendChild(script);
+        document.body.removeChild(script);
     }
+
+    // 4. Yahooからのデータを受け取る関数
+    window.handleResponse = function(data) {
+        const status = document.getElementById('status');
+        if (!data.Feature || data.Feature.length === 0) {
+            status.innerText = "見つかりませんでした😢";
+            return;
+        }
+
+        status.innerText = data.Count + "件のショップを発見！";
+        data.Feature.forEach(f => {
+            const coords = f.Geometry.Coordinates.split(',');
+            const lat = coords[1];
+            const lon = coords[0];
+            const name = f.Name;
+            
+            // Yahoo!が持っている公式URL、なければGoogle検索へ
+            const siteUrl = f.Property.Detail.PcSiteUrl || `https://www.google.com/search?q=${encodeURIComponent(name)}`;
+
+            const content = `
+                <div class="popup-card">
+                    <b>${name}</b>
+                    <a href="${siteUrl}" target="_blank" class="btn hp-btn">🌐 公式サイト・詳細</a>
+                    <a href="https://www.google.com/maps/dir/?api=1&destination=${lat},${lon}" target="_blank" class="btn nav-btn">🚗 ここへ行く（ナビ）</a>
+                </div>
+            `;
+
+            const icon = L.icon({
+                iconUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-green.png',
+                iconSize: [25, 41], iconAnchor: [12, 41], popupAnchor: [1, -34]
+            });
+
+            L.marker([lat, lon], {icon: icon}).addTo(map).bindPopup(content);
+        });
+    };
 </script>
 </body>
 </html>
