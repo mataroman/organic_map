@@ -7,38 +7,35 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.css" />
     <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.js"></script>
     <style>
-        :root { --main-green: #2e7d32; --accent: #fbc02d; }
-        body { margin: 0; padding: 0; height: 100dvh; font-family: sans-serif; background: #f0f2f0; overflow: hidden; }
+        :root { --main-green: #2e7d32; }
+        body { margin: 0; padding: 0; height: 100dvh; font-family: sans-serif; background: #000; overflow: hidden; }
         #map { width: 100%; height: 100%; position: absolute; z-index: 1; }
         .dog-banner {
-            position: fixed; top: 20px; left: 20px; z-index: 4000;
-            background: white; padding: 6px; border-radius: 50px;
-            display: flex; align-items: center; box-shadow: 0 4px 15px rgba(0,0,0,0.2);
+            position: fixed; top: 15px; left: 15px; z-index: 4000;
+            background: white; padding: 5px; border-radius: 50px;
+            display: flex; align-items: center; box-shadow: 0 4px 10px rgba(0,0,0,0.3);
             border: 2px solid var(--main-green);
         }
-        .dog-photo { width: 48px; height: 48px; border-radius: 50%; object-fit: cover; }
-        .dog-msg { padding: 0 18px 0 10px; font-weight: bold; color: #2e7d32; min-width: 150px; }
-        .ui { position: fixed; bottom: 40px; left: 0; right: 0; z-index: 3000; text-align: center; }
-        #status { background: rgba(255,255,255,0.9); padding: 8px 24px; border-radius: 30px; font-weight: bold; margin-bottom: 12px; display: inline-block; color: #333; }
-        .btn { color: white; border: none; padding: 16px 50px; border-radius: 50px; font-weight: bold; font-size: 1.1rem; cursor: pointer; background: var(--main-green); box-shadow: 0 6px 20px rgba(0,0,0,0.3); }
-        .mataro-pin { width: 52px !important; height: 52px !important; border: 3px solid #fff; border-radius: 50%; box-shadow: 0 4px 12px rgba(0,0,0,0.3); }
-        .popup-card { min-width: 200px; padding: 5px; }
-        .popup-name { font-weight: bold; color: var(--main-green); display: block; margin-bottom: 3px; }
-        .popup-link { display: inline-block; margin-top: 8px; color: #1a73e8; font-weight: bold; text-decoration: none; border: 1px solid #1a73e8; padding: 4px 8px; border-radius: 4px; }
+        .dog-photo { width: 50px; height: 50px; border-radius: 50%; object-fit: cover; }
+        .dog-msg { padding: 0 15px 0 10px; font-weight: bold; font-size: 0.85rem; color: #333; min-width: 140px; }
+        .ui { position: fixed; bottom: 30px; left: 0; right: 0; z-index: 3000; text-align: center; }
+        .btn { color: white; background: var(--main-green); border: none; padding: 18px 45px; border-radius: 50px; font-weight: bold; font-size: 1.2rem; cursor: pointer; box-shadow: 0 5px 20px rgba(0,0,0,0.5); }
+        #status { background: rgba(255,255,255,0.95); padding: 8px 20px; border-radius: 25px; font-size: 0.85rem; display: inline-block; font-weight: bold; margin-bottom: 10px; color: #333; }
+        .mataro-pin { width: 50px !important; height: 50px !important; border: 3px solid #fff; border-radius: 50%; object-fit: cover; }
     </style>
 </head>
 <body>
 
 <div class="dog-banner">
     <img src="mataro.jpg" class="dog-photo" onerror="this.src='https://cdn-icons-png.flaticon.com/512/616/616408.png'">
-    <div id="dog-msg-text" class="dog-msg">本物を探すさ！</div>
+    <div id="dog-msg-text" class="dog-msg">クンクン…準備いいさ？</div>
 </div>
 
 <div id="map"></div>
 
 <div class="ui">
-    <div id="status">厳選スキャンを開始するさ</div><br>
-    <button class="btn" onclick="startScan()">🌿 厳選スキャン</button>
+    <div id="status">あの頃の鼻を取り戻したさ！</div><br>
+    <button class="btn" onclick="startScan()">🌿 スキャン開始さ</button>
 </div>
 
 <script>
@@ -51,16 +48,13 @@
     function startScan() {
         markers.forEach(m => map.removeLayer(m));
         markers = [];
-        document.getElementById('status').innerText = "キーワードを精査中さ...";
+        document.getElementById('status').innerText = "全開でクンクンしてるさ！";
 
         const center = map.getCenter();
         
-        // 【核心部】あなたが言った通り、ORGANICや有機をORで繋いで、より「濃い」検索にするさ
-        // これで普通のスーパーを弾き飛ばすさ
-        const kws = ['オーガニック', 'ORGANIC', '有機', '自然食品店', 'ヴィーガン'];
-        const query = encodeURIComponent(kws.join(' OR '));
-        
-        const url = `https://map.yahooapis.jp/search/local/V1/localSearch?appid=${appid}&lat=${center.lat}&lon=${center.lng}&dist=10&query=${query}&results=30&output=json&callback=handleResponse`;
+        // 【復刻・最強クエリ】
+        // 下手に単語を増やさず、一番安定していた「自然食品」一発勝負さ！
+        const url = `https://map.yahooapis.jp/search/local/V1/localSearch?appid=${appid}&lat=${center.lat}&lon=${center.lng}&dist=10&query=${encodeURIComponent('自然食品')}&results=50&output=json&callback=handleResponse`;
 
         const script = document.createElement('script');
         script.src = url;
@@ -70,32 +64,20 @@
 
     window.handleResponse = function(data) {
         if (!data.Feature || data.Feature.length === 0) {
-            document.getElementById('status').innerText = "このエリアに本物は見当たらなかったさ";
+            document.getElementById('status').innerText = "あれ…見当たらないさ。場所を変えてみるさ";
             return;
         }
 
-        let foundCount = 0;
         data.Feature.forEach((f) => {
-            const name = f.Name;
-            // 店名にノイズ（普通のコンビニなど）が入っていないか簡易チェックさ
-            if (name.includes("セブン") || name.includes("ローソン") || name.includes("ファミリーマート")) return;
-
             const coords = f.Geometry.Coordinates.split(',');
             const m = L.marker([coords[1], coords[0]], {
-                icon: L.icon({ iconUrl: 'mataro.jpg', className: 'mataro-pin', iconSize: [52, 52], iconAnchor: [26, 26] })
-            }).addTo(map).bindPopup(`
-                <div class="popup-card">
-                    <span class="popup-name">${f.Name}</span>
-                    <small>${f.Property.Address || ""}</small><br>
-                    <a href="https://www.google.com/search?q=${encodeURIComponent(f.Name + ' ' + (f.Property.Address || ""))}" target="_blank" class="popup-link">本物か確かめるさ</a>
-                </div>
-            `);
+                icon: L.icon({ iconUrl: 'mataro.jpg', className: 'mataro-pin', iconSize: [50, 50], iconAnchor: [25, 25] })
+            }).addTo(map).bindPopup(`<b>${f.Name}</b><br><small>${f.Property.Address || ""}</small>`);
             markers.push(m);
-            foundCount++;
         });
 
-        document.getElementById('dog-msg-text').innerText = "これならどうださ！";
-        document.getElementById('status').innerText = foundCount + "件の厳選スポットを表示したさ！";
+        document.getElementById('dog-msg-text').innerText = "これさ！この匂いさ！";
+        document.getElementById('status').innerText = data.Feature.length + "件見つかったそうさ！";
     };
 </script>
 </body>
