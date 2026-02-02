@@ -1,25 +1,46 @@
-function updateLocation() {
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Organic Finder</title>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <style>
+        body { font-family: sans-serif; margin: 0; display: flex; flex-direction: column; height: 100vh; }
+        header { background: #1b5e20; color: white; padding: 15px; text-align: center; font-size: 1.2rem; font-weight: bold; }
+        #map { flex-grow: 1; width: 100%; }
+        .ui-area { padding: 20px; background: white; text-align: center; border-top: 1px solid #ddd; }
+        button { background: #f39c12; color: white; border: none; padding: 15px 30px; border-radius: 5px; font-weight: bold; font-size: 1.1rem; cursor: pointer; width: 100%; max-width: 300px; }
+        #debug-msg { color: #2e7d32; font-size: 0.9rem; margin-top: 10px; font-weight: bold; }
+    </style>
+</head>
+<body>
+
+<header>🌿 Organic Finder</header>
+<div id="map"></div>
+<div class="ui-area">
+    <button onclick="updateLocation()">📍 現在地周辺をスキャン</button>
+    <div id="debug-msg">ボタンを押してスキャン開始</div>
+</div>
+
+<script>
+    // 初期表示
+    const map = L.map('map').setView([35.0, 135.0], 5);
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
+
+    function updateLocation() {
         const debug = document.getElementById('debug-msg');
         debug.innerText = "現在地を特定中...";
 
         navigator.geolocation.getCurrentPosition((pos) => {
             const { latitude, longitude } = pos.coords;
             map.setView([latitude, longitude], 15);
+            
+            // 現在地マーカー
             L.marker([latitude, longitude]).addTo(map).bindPopup("あなたの現在地").openPopup();
             
-            // 【ここが魔法！】周辺のオーガニックに関連する場所を検索（OpenStreetMapのデータを使用）
-            fetch(`https://overpass-api.de/api/interpreter?data=[out:json];node["shop"~"organic|health_food"](around:5000,${latitude},${longitude});out;`)
-            .then(res => res.json())
-            .then(data => {
-                debug.innerText = `${data.elements.length}軒の店舗が見つかりました`;
-                data.elements.forEach(item => {
-                    L.marker([item.lat, item.lon], {icon: L.icon({
-                        iconUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-green.png',
-                        iconSize: [25, 41], iconAnchor: [12, 41]
-                    })}).addTo(map).bindPopup(`<b>${item.tags.name || "有機製品取り扱い店"}</b><br><button onclick="window.open('https://www.google.com/maps/search/?api=1&query=${item.lat},${item.lon}')">ここへ行く(ナビ)</button>`);
-                });
-            });
-        }, (err) => {
-            debug.innerText = "GPSエラー: 許可設定を確認してください。";
-        });
-    }
+            debug.innerText = "近隣の有機ショップを検索中...";
+
+            // 周辺5kmの店舗検索（OpenStreetMap API）
+            const query = `[out:json];node["shop"~"organic|health_food"]
