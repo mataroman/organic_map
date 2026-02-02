@@ -55,8 +55,10 @@
         if (searchCircle) map.removeLayer(searchCircle);
         searchCircle = L.circle(center, { radius: 10000, color: '#2e7d32', fillOpacity: 0.15 }).addTo(map);
 
-        const query = encodeURIComponent('オーガニック OR 自然食品');
-        const url = `https://map.yahooapis.jp/search/local/V1/localSearch?appid=${appid}&lat=${center.lat}&lon=${center.lng}&dist=10&query=${query}&results=50&output=json&callback=handleResponse`;
+        // 【最重要】
+        // 複雑なOR検索を止め、最もヒット率が高い「自然食品」一発でリクエストするさ。
+        // これで確実にオーガニックプラザを含む周辺50件を呼び戻すそうさ。
+        const url = `https://map.yahooapis.jp/search/local/V1/localSearch?appid=${appid}&lat=${center.lat}&lon=${center.lng}&dist=10&query=${encodeURIComponent('自然食品')}&results=50&output=json&callback=handleResponse`;
 
         const script = document.createElement('script');
         script.src = url;
