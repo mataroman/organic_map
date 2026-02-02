@@ -18,7 +18,7 @@
             border: 2px solid var(--main-green);
         }
         .dog-photo { width: 50px; height: 50px; border-radius: 50%; object-fit: cover; }
-        .dog-msg { padding: 0 15px 0 10px; font-weight: bold; font-size: 0.85rem; color: #333; min-width: 160px; }
+        .dog-msg { padding: 0 15px 0 10px; font-weight: bold; font-size: 0.85rem; color: #333; min-width: 140px; }
         .ui { position: fixed; bottom: 30px; left: 0; right: 0; z-index: 3000; text-align: center; }
         .btn { color: white; border: none; padding: 18px 45px; border-radius: 50px; font-weight: bold; font-size: 1.2rem; cursor: pointer; min-width: 240px; box-shadow: 0 5px 15px rgba(0,0,0,0.3); }
         .scan-btn { background: var(--main-green); }
@@ -31,7 +31,7 @@
 
 <div class="dog-banner">
     <img src="mataro.jpg" class="dog-photo" onerror="this.src='https://cdn-icons-png.flaticon.com/512/616/616408.png'">
-    <div id="dog-msg-text" class="dog-msg">準備はいいかい？そうさ</div>
+    <div id="dog-msg-text" class="dog-msg">準備おっけー？</div>
 </div>
 
 <div id="map"></div>
@@ -48,11 +48,11 @@
     let searchCircle = null;
     let markers = [];
 
-    // 台詞を「〜さ」と「〜そうさ」で自然に使い分け
+    // あなたのアドバイス通り、簡潔でリズムの良い台詞さ
     const startMsgs = [
         "いい匂いがしてきたさ",
-        "この辺りをクンクンしてみるさ",
-        "都内だろうがどこだろうが、嗅ぎ分けるのさ",
+        "この辺りをクンクンするさ",
+        "都内だろうがどこでも嗅ぎ分けるさ",
         "この場所のオーガニックを探してみるさ",
         "ボチボチ始めるさ。鼻は利く方さ",
         "クンクン…お、この辺りは怪しいさ"
@@ -61,7 +61,7 @@
     const map = L.map('map', { zoomControl: false }).setView([34.811, 135.341], 15);
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
 
-    function toggleScan() { if (isScanning) { stopScan("また後でな、そうさ"); } else { startScan(); } }
+    function toggleScan() { if (isScanning) { stopScan("また後でさ"); } else { startScan(); } }
 
     function startScan() {
         isScanning = true;
@@ -91,7 +91,7 @@
         document.body.appendChild(script);
 
         setTimeout(() => {
-            if(isScanning && markers.length === 0) stopScan("まだ応答がないさ。キーを確認すべきだそうさ");
+            if(isScanning && markers.length === 0) stopScan("まだ応答がないさ。キーを確認すべきださ");
         }, 8000);
     }
 
