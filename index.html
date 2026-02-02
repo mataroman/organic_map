@@ -1,88 +1,17 @@
-<!DOCTYPE html>
-<html lang="ja">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Organic Hunter</title>
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.css" />
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.js"></script>
-    <style>
-        body { margin: 0; padding: 0; height: 100dvh; display: flex; flex-direction: column; }
-        #map { flex-grow: 1; width: 100%; position: relative; }
-        
-        /* 画面中央の照準マーク */
-        .crosshair {
-            position: absolute; top: 50%; left: 50%;
-            transform: translate(-50%, -50%);
-            z-index: 2000; pointer-events: none;
-            color: #2e7d32; font-size: 30px; font-weight: bold;
-        }
-
-        .ui-panel {
-            position: fixed; bottom: 20px; left: 0; right: 0;
-            z-index: 3000; text-align: center;
-        }
-        button {
-            background: #2e7d32; color: white; border: none; padding: 18px 0;
-            width: 85%; max-width: 350px; border-radius: 50px; font-weight: bold;
-            box-shadow: 0 4px 15px rgba(0,0,0,0.3); cursor: pointer;
-        }
-        #status {
-            background: rgba(255,255,255,0.9); margin-top: 10px;
-            padding: 5px 15px; border-radius: 20px; font-size: 0.8rem; display: inline-block;
-        }
-    </style>
-</head>
-<body>
-
-<div id="map">
-    <div class="crosshair">＋</div>
-</div>
-
-<div class="ui-panel">
-    <button onclick="scanAtCenter()">🌿 このエリアをスキャン</button><br>
-    <div id="status">地図を動かしてスキャン！</div>
-</div>
-
 <script>
-    // 初期表示（まずは宝塚駅付近を表示）
-    var map = L.map('map').setView([34.811, 135.341], 15);
-    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
-
-    // 最初に一度だけ現在地に飛ぶ
-    navigator.geolocation.getCurrentPosition(pos => {
-        map.setView([pos.coords.latitude, pos.coords.longitude], 15);
-    });
-
-    async function scanAtCenter() {
-        const status = document.getElementById('status');
-        const center = map.getCenter();
-        status.innerText = "スキャン中...";
-
-        const query = `[out:json][timeout:15];(node["shop"~"organic|health_food"](around:3000,${center.lat},${center.lng});node["name"~"有機|自然食品|産直|オーガニック"](around:3000,${center.lat},${center.lng}););out;`;
+    // ...中略...
+    data.elements.forEach(el => {
+        const name = el.tags.name || "自然食品店";
+        // お店の名前でGoogle検索するURLを生成
+        const searchUrl = `https://www.google.com/search?q=${encodeURIComponent(name)}+宝塚+オーガニック`;
         
-        try {
-            const res = await fetch(`https://overpass-api.de/api/interpreter?data=${encodeURIComponent(query)}`);
-            const data = await res.json();
-            
-            if (data.elements.length === 0) {
-                status.innerText = "見つかりませんでした";
-                return;
-            }
-
-            status.innerText = data.elements.length + "軒見つけました！";
-            data.elements.forEach(el => {
-                const icon = L.icon({
-                    iconUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-green.png',
-                    iconSize: [25, 41], iconAnchor: [12, 41]
-                });
-                L.marker([el.lat, el.lon], {icon: icon}).addTo(map)
-                    .bindPopup(`<b>${el.tags.name || "自然食品店"}</b><br><br><a href="https://www.google.com/maps/dir/?api=1&destination=${el.lat},${el.lon}" target="_blank">Googleナビ開始</a>`);
-            });
-        } catch (e) {
-            status.innerText = "通信エラー。もう一度押してください。";
-        }
-    }
+        L.marker([el.lat, el.lon], {icon: icon}).addTo(map)
+            .bindPopup(`
+                <div style="text-align:center;">
+                    <b style="font-size:1.1rem;">${name}</b><br><br>
+                    <a href="${searchUrl}" target="_blank" style="background:#4285f4;color:white;padding:8px 12px;text-decoration:none;border-radius:5px;display:block;margin-bottom:8px;">🔍 このお店を詳しく調べる</a>
+                    <a href="https://www.google.com/maps/dir/?api=1&destination=${el.lat},${el.lon}" target="_blank" style="background:#2e7d32;color:white;padding:8px 12px;text-decoration:none;border-radius:5px;display:block;">🚗 ここへ行く</a>
+                </div>
+            `);
+    });
 </script>
-</body>
-</html>
