@@ -1,23 +1,66 @@
-<script>
-    let firstScan = true; // 初回判定用フラグ
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Organic Map Pro</title>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <style>
+        body { margin: 0; padding: 0; font-family: sans-serif; height: 100vh; display: flex; flex-direction: column; }
+        #map { flex-grow: 1; width: 100vw; }
+        .ui-panel {
+            position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%);
+            z-index: 1000; width: 90%; max-width: 400px; text-align: center;
+        }
+        #scan-btn {
+            background: #2e7d32; color: white; border: none; padding: 18px;
+            width: 100%; border-radius: 50px; font-weight: bold; font-size: 1.1rem;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.3); cursor: pointer;
+        }
+        #scan-btn:active { background: #1b5e20; transform: scale(0.95); }
+        #status {
+            margin-top: 10px; background: rgba(255,255,255,0.9);
+            padding: 5px 15px; border-radius: 20px; font-size: 0.8rem; display: inline-block;
+            border: 1px solid #ddd;
+        }
+    </style>
+</head>
+<body>
 
-    function searchOrganic() {
+<div id="map"></div>
+<div class="ui-panel">
+    <button id="scan-btn" onclick="startScan()">🌿 このエリアをスキャン</button>
+    <div id="status">準備完了</div>
+</div>
+
+<script>
+    // 地図の初期化（最初は日本全体）
+    const map = L.map('map').setView([35.68, 139.76], 5);
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
+
+    let firstTime = true;
+
+    function startScan() {
         const status = document.getElementById('status');
         
-        // 初回だけGPSで現在地を取得、2回目以降は「今見ている地図の中心」を基準にする
-        if (firstScan) {
+        if (firstTime) {
             status.innerText = "現在地を特定中...";
             navigator.geolocation.getCurrentPosition(pos => {
-                const { latitude: lat, longitude: lon } = pos.coords;
+                const lat = pos.coords.latitude;
+                const lon = pos.coords.longitude;
                 map.setView([lat, lon], 14);
                 L.marker([lat, lon]).addTo(map).bindPopup("あなたの現在地").openPopup();
-                firstScan = false;
-                executeSearch(lat, lon); // 検索実行へ
-            }, (err) => {
+                firstTime = false;
+                executeSearch(lat, lon);
+            }, err => {
                 status.innerText = "GPSエラー: 許可を確認してください";
+                // GPSがダメでも、今の中心地で検索を試みる
+                firstTime = false;
+                const center = map.getCenter();
+                executeSearch(center.lat, center.lng);
             });
         } else {
-            // 2回目以降は地図の中心座標を取得
             const center = map.getCenter();
             executeSearch(center.lat, center.lng);
         }
@@ -25,29 +68,37 @@
 
     function executeSearch(lat, lon) {
         const status = document.getElementById('status');
-        status.innerText = "このエリアの店舗を検索中...";
+        status.innerText = "周辺のオーガニック店を検索中...";
 
-        const query = `[out:json][timeout:25];(node["shop"~"organic|health_food"](around:3000,${lat},${lon});node["name"~"有機|自然食品|産直|オーガニック"](around:3000,${lat},${lon}););out;`;
-        
-        // 安定性の高いサーバーを使用
-        fetch(`https://overpass.kumi.systems/api/interpreter?data=${encodeURIComponent(query)}`)
-        .then(res => res.json())
-        .then(data => {
-            if (data.elements.length === 0) {
-                status.innerText = "この付近には見つかりませんでした";
-                return;
-            }
-            status.innerText = `${data.elements.length}軒見つかりました！`;
-            
-            data.elements.forEach(el => {
-                const greenIcon = L.icon({
-                    iconUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-green.png',
-                    iconSize: [25, 41], iconAnchor: [12, 41]
+        // 日本語・英語両方のキーワードで、半径5kmを検索
+        const query = `[out:json][timeout:25];(node["shop"~"organic|health_food"](around:5000,${lat},${lon});node["name"~"有機|自然食品|産直|オーガニック"](around:5000,${lat},${lon}););out;`;
+        const url = `https://overpass.kumi.systems/api/interpreter?data=${encodeURIComponent(query)}`;
+
+        fetch(url)
+            .then(res => res.json())
+            .then(data => {
+                if (!data.elements || data.elements.length === 0) {
+                    status.innerText = "この付近には見つかりませんでした";
+                    return;
+                }
+                status.innerText = `${data.elements.length}軒の店舗を発見！`;
+                
+                data.elements.forEach(el => {
+                    const name = el.tags.name || "自然食品店";
+                    const greenIcon = L.icon({
+                        iconUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-green.png',
+                        shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/0.7.7/images/marker-shadow.png',
+                        iconSize: [25, 41], iconAnchor: [12, 41], popupAnchor: [1, -34], shadowSize: [41, 41]
+                    });
+
+                    L.marker([el.lat, el.lon], {icon: greenIcon}).addTo(map)
+                        .bindPopup(`<b>${name}</b><br><br><a href="https://www.google.com/maps/dir/?api=1&destination=${el.lat},${el.lon}" target="_blank" style="background:#f39c12;color:white;padding:8px 12px;text-decoration:none;border-radius:5px;display:inline-block;">ここへ行く(ナビ)</a>`);
                 });
-                L.marker([el.lat, el.lon], {icon: greenIcon}).addTo(map)
-                    .bindPopup(`<b>${el.tags.name || "自然食品店"}</b><br><br><a href="http://maps.google.com/?q=${el.lat},${el.lon}" target="_blank" style="background:#f39c12;color:white;padding:5px 10px;text-decoration:none;border-radius:3px;">ナビ</a>`);
+            })
+            .catch(err => {
+                status.innerText = "サーバー混雑。もう一度押してください。";
             });
-        })
-        .catch(() => status.innerText = "通信エラー。もう一度押してください。");
     }
 </script>
+</body>
+</html>
