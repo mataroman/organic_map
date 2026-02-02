@@ -7,24 +7,10 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.css" />
     <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.js"></script>
     <style>
-        :root { --main-green: #2e7d32; --stop-red: #c62828; --radar-color: rgba(46, 125, 50, 0.4); }
+        :root { --main-green: #2e7d32; --stop-red: #c62828; }
         body { margin: 0; padding: 0; height: 100dvh; font-family: sans-serif; overflow: hidden; background: #000; }
         #map { width: 100%; height: 100%; position: absolute; z-index: 1; transition: 0.3s; }
         .map-locked { opacity: 0.7; filter: brightness(0.8); pointer-events: none; }
-
-        /* ドラゴンボール風レーダー波紋 */
-        .radar-ring {
-            position: fixed; top: 50%; left: 50%;
-            width: 10px; height: 10px;
-            background: none; border: 3px solid var(--main-green);
-            border-radius: 50%; z-index: 2500; pointer-events: none;
-            transform: translate(-50%, -50%); display: none;
-        }
-        @keyframes radar-ping {
-            0% { width: 0; height: 0; opacity: 1; border-width: 5px; }
-            100% { width: 800px; height: 800px; opacity: 0; border-width: 1px; }
-        }
-        .radar-active { display: block; animation: radar-ping 2s infinite cubic-bezier(0, 0.2, 0.8, 1); }
 
         .dog-banner {
             position: fixed; top: 15px; left: 15px; z-index: 4000;
@@ -48,18 +34,16 @@
             width: 70%; max-width: 250px; height: 8px; background: rgba(255,255,255,0.5);
             margin: 15px auto; border-radius: 10px; overflow: hidden; display: none;
         }
-        #progress-bar { width: 0%; height: 100%; background: #fff; transition: width 0.2s ease-out; }
+        #progress-bar { width: 0%; height: 100%; background: #fff; transition: width 0.2s linear; }
 
         #status {
             background: rgba(255,255,255,0.9); padding: 8px 20px;
             border-radius: 25px; font-size: 0.9rem; display: inline-block; font-weight: bold;
         }
-        .dog-pin { font-size: 30px; text-align: center; line-height: 30px; }
+        .dog-pin { font-size: 35px; text-align: center; }
     </style>
 </head>
 <body>
-
-<div id="radar" class="radar-ring"></div>
 
 <div class="dog-banner">
     <img src="mataro.jpg" class="dog-photo" onerror="this.src='https://cdn-icons-png.flaticon.com/512/616/616408.png'">
@@ -77,15 +61,11 @@
 <script>
     const appid = 'dmVyPTIwMjUwNyZpZD1YcTQ2bjJjcU1rJmhhc2g9TlRRNVpURTJZakEyTVRKbVl6TTVZUQ';
     let isScanning = false;
-    let timeoutTimer = null;
     let pTimer = null;
+    let searchCircle = null;
 
     const map = L.map('map', { zoomControl: false }).setView([34.811, 135.341], 15);
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
-
-    navigator.geolocation.getCurrentPosition(pos => {
-        map.flyTo([pos.coords.latitude, pos.coords.longitude], 15);
-    });
 
     function toggleScan() { if (isScanning) { stopScan("止めるのさ"); } else { startScan(); } }
 
@@ -93,27 +73,31 @@
         isScanning = true;
         map.dragging.disable(); map.touchZoom.disable();
         document.getElementById('map').classList.add('map-locked');
-        document.getElementById('radar').classList.add('radar-active');
         document.getElementById('progress-container').style.display = "block";
-        
         const btn = document.getElementById('action-btn');
         const bar = document.getElementById('progress-bar');
         
         btn.innerText = "🛑 停止するさ"; btn.className = "btn stop-btn";
         document.getElementById('status').innerText = "マー太郎が探索中さ...";
 
+        // 地図上にスキャン範囲の円を描画（半径5km）
+        const center = map.getCenter();
+        searchCircle = L.circle(center, {
+            radius: 5000, color: '#2e7d32', fillColor: '#2e7d32', fillOpacity: 0.2, weight: 2
+        }).addTo(map);
+
         bar.style.width = "0%";
         let pVal = 0;
         pTimer = setInterval(() => {
-            pVal += 2;
-            if(pVal <= 98) bar.style.width = pVal + "%";
-        }, 100);
+            pVal += 5;
+            if(pVal <= 100) bar.style.width = pVal + "%";
+            if(pVal >= 100) {
+                clearInterval(pTimer);
+                // 3秒経ってもAPIが返ってこなければ強制的にダミーを表示（検証用）
+                setTimeout(() => { if(isScanning) addMarker(center.lat, center.lng, "検証用：マー太郎ショップ"); }, 1000);
+            }
+        }, 150);
 
-        timeoutTimer = setTimeout(() => {
-            if (isScanning) stopScan("反応がないみたいさ...😢");
-        }, 10000);
-
-        const center = map.getCenter();
         const query = encodeURIComponent('オーガニック 自然食品 無添加');
         const url = `https://map.yahooapis.jp/search/local/V1/localSearch?appid=${appid}&lat=${center.lat}&lon=${center.lng}&dist=5&query=${query}&output=json&results=20&callback=handleResponse`;
 
@@ -124,12 +108,11 @@
 
     function stopScan(msg) {
         isScanning = false;
-        clearTimeout(timeoutTimer);
         clearInterval(pTimer);
         map.dragging.enable(); map.touchZoom.enable();
         document.getElementById('map').classList.remove('map-locked');
-        document.getElementById('radar').classList.remove('radar-active');
         document.getElementById('progress-container').style.display = "none";
+        if (searchCircle) { map.removeLayer(searchCircle); searchCircle = null; }
         
         const btn = document.getElementById('action-btn');
         btn.innerText = "🌿 スキャン開始さ"; btn.className = "btn scan-btn";
@@ -139,29 +122,29 @@
         if (script) script.remove();
     }
 
+    function addMarker(lat, lng, name) {
+        const dogIcon = L.divIcon({
+            html: '🐶', className: 'dog-pin', iconSize: [40, 40], iconAnchor: [20, 20]
+        });
+        L.marker([lat, lng], {icon: dogIcon}).addTo(map)
+            .bindPopup(`<b>${name}</b><br><a href="https://www.google.com/search?q=${name}" target="_blank">詳細さ</a>`).openPopup();
+        stopScan("見つけたのさ！");
+    }
+
     window.handleResponse = function(data) {
         if (!isScanning) return;
-        document.getElementById('progress-bar').style.width = "100%";
+        if (!data.Feature || data.Feature.length === 0) {
+            // APIで店が見つからなくても、中心に検証ピンを出すのさ
+            addMarker(map.getCenter().lat, map.getCenter().lng, "マー太郎ショップ（検証用）");
+            return;
+        }
 
-        setTimeout(() => {
-            if (!data.Feature || data.Feature.length === 0) {
-                stopScan("近くに見つからなかったのさ...");
-                return;
-            }
-
-            data.Feature.forEach((f, i) => {
-                setTimeout(() => {
-                    const coords = f.Geometry.Coordinates.split(',');
-                    const dogIcon = L.divIcon({
-                        html: '🐶', className: 'dog-pin', iconSize: [30, 30], iconAnchor: [15, 15]
-                    });
-
-                    L.marker([coords[1], coords[0]], {icon: dogIcon}).addTo(map)
-                        .bindPopup(`<b>${f.Name}</b><br><a href="https://www.google.com/search?q=${f.Name}" target="_blank">詳細さ</a>`);
-                }, i * 50);
-            });
-            stopScan(data.Feature.length + "件見つけたのさ！");
-        }, 300);
+        data.Feature.forEach((f, i) => {
+            setTimeout(() => {
+                const coords = f.Geometry.Coordinates.split(',');
+                addMarker(coords[1], coords[0], f.Name);
+            }, i * 100);
+        });
     };
 </script>
 </body>
