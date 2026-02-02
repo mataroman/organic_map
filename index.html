@@ -8,26 +8,43 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.css" />
     <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.js"></script>
     <style>
-        :root { --main-green: #2e7d32; }
-        body { margin: 0; padding: 0; height: 100dvh; font-family: sans-serif; overflow: hidden; }
-        #map { width: 100%; height: 100%; position: absolute; }
+        :root { --main-green: #2e7d32; --stop-red: #c62828; }
+        body { margin: 0; padding: 0; height: 100dvh; font-family: sans-serif; overflow: hidden; background: #000; }
+        
+        /* 地図のスタイル */
+        #map { width: 100%; height: 100%; position: absolute; z-index: 1; transition: opacity 0.3s, filter 0.3s; }
+        /* スキャン中のロック状態の見た目 */
+        .map-locked { opacity: 0.7; filter: grayscale(0.5) blur(1px); pointer-events: none; }
+        
         .crosshair {
             position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
             z-index: 2000; pointer-events: none; font-size: 32px; filter: drop-shadow(0 0 2px white);
         }
+
         .ui { position: fixed; bottom: 30px; left: 0; right: 0; z-index: 3000; text-align: center; }
-        .scan-btn {
-            background: var(--main-green); color: white; border: none; padding: 16px 40px;
-            border-radius: 50px; font-weight: bold; font-size: 1.1rem; box-shadow: 0 4px 15px rgba(0,0,0,0.3);
-            cursor: pointer; -webkit-appearance: none;
-        }
-        #status {
-            background: rgba(255,255,255,0.9); margin-top: 10px; padding: 6px 15px;
-            border-radius: 20px; font-size: 0.85rem; display: inline-block; font-weight: bold;
-        }
-        .popup-card { text-align: center; padding: 5px; }
-        .popup-card b { font-size: 1.1rem; color: var(--main-green); }
+        
         .btn {
+            color: white; border: none; padding: 16px 40px;
+            border-radius: 50px; font-weight: bold; font-size: 1.1rem; box-shadow: 0 4px 15px rgba(0,0,0,0.3);
+            cursor: pointer; min-width: 220px; transition: 0.3s; -webkit-appearance: none;
+        }
+        .scan-btn { background: var(--main-green); }
+        .stop-btn { background: var(--stop-red); }
+
+        #progress-container {
+            width: 80%; max-width: 300px; height: 10px; background: rgba(255,255,255,0.8);
+            margin: 10px auto; border-radius: 10px; overflow: hidden; display: none;
+        }
+        #progress-bar { width: 0%; height: 100%; background: var(--main-green); transition: width 0.1s; }
+
+        #status {
+            background: rgba(255,255,255,0.95); padding: 8px 20px;
+            border-radius: 25px; font-size: 0.9rem; display: inline-block; font-weight: bold; margin-bottom: 5px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        
+        .popup-card { text-align: center; padding: 5px; }
+        .link-btn {
             display: block; margin-top: 8px; padding: 10px; text-decoration: none;
             border-radius: 5px; font-weight: bold; font-size: 0.9rem;
         }
@@ -38,75 +55,127 @@
 <body>
 
 <div id="map"><div class="crosshair">✨</div></div>
+
 <div class="ui">
-    <button class="scan-btn" onclick="yahooScan()">🌿 このエリアをスキャン</button><br>
-    <div id="status">地図を動かしてスキャンしてね</div>
+    <div id="status">「✨」を合わせてスキャン！</div>
+    <div id="progress-container"><div id="progress-bar"></div></div>
+    <button id="action-btn" class="btn scan-btn" onclick="toggleScan()">🌿 スキャン開始</button>
 </div>
 
 <script>
-    // 先ほど取得したID（デコード済みのもの）をここにセットしました
     const appid = 'dj00aiZpPVhxNDZuMmNxTWtNayZzPWNvbnN1bWVyc2VjcmV0Jng9NTI-';
+    let isScanning = false;
 
-    // 1. 地図初期化
+    // 地図初期化
     var map = L.map('map', { zoomControl: false }).setView([34.811, 135.341], 15);
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
 
-    // 2. 現在地に移動
     navigator.geolocation.getCurrentPosition(pos => {
         map.flyTo([pos.coords.latitude, pos.coords.longitude], 15);
     });
 
-    // 3. Yahoo! APIスキャン
-    async function yahooScan() {
-        const status = document.getElementById('status');
-        const center = map.getCenter();
-        status.innerText = "スキャン中...";
+    function toggleScan() {
+        if (isScanning) {
+            stopScan("スキャンを中止しました");
+        } else {
+            startScan();
+        }
+    }
 
-        // CORS回避のため、Yahoo公式のJSONPまたはProxy的な手法が必要ですが、
-        // YOLP APIの仕様に合わせ、最も確実なパラメータでリクエストします
+    function startScan() {
+        isScanning = true;
+        
+        // --- 地図の操作をロック ---
+        map.dragging.disable();
+        map.touchZoom.disable();
+        map.doubleClickZoom.disable();
+        map.scrollWheelZoom.disable();
+        document.getElementById('map').classList.add('map-locked');
+
+        const btn = document.getElementById('action-btn');
+        const status = document.getElementById('status');
+        const progressContainer = document.getElementById('progress-container');
+        const progressBar = document.getElementById('progress-bar');
+
+        btn.innerText = "🛑 スキャン停止";
+        btn.className = "btn stop-btn";
+        status.innerText = "ショップを探索中（ロック中）";
+        progressContainer.style.display = "block";
+        progressBar.style.width = "0%";
+
+        let progress = 0;
+        const interval = setInterval(() => {
+            if (!isScanning) { clearInterval(interval); return; }
+            if (progress < 90) { progress += 3; progressBar.style.width = progress + "%"; }
+        }, 100);
+
+        const center = map.getCenter();
         const query = encodeURIComponent('オーガニック 自然食品 無添加 産直');
         const url = `https://map.yahooapis.jp/search/local/V1/localSearch?appid=${appid}&lat=${center.lat}&lon=${center.lng}&dist=3&query=${query}&output=json&results=20&callback=handleResponse`;
 
-        // JSONP方式で呼び出し（CORSエラーを物理的に回避するエンジニアの技です）
         const script = document.createElement('script');
+        script.id = "yahoo-script";
         script.src = url;
         document.body.appendChild(script);
-        document.body.removeChild(script);
     }
 
-    // 4. Yahooからのデータを受け取る関数
-    window.handleResponse = function(data) {
+    function stopScan(msg) {
+        isScanning = false;
+        
+        // --- 地図の操作ロックを解除 ---
+        map.dragging.enable();
+        map.touchZoom.enable();
+        map.doubleClickZoom.enable();
+        map.scrollWheelZoom.enable();
+        document.getElementById('map').classList.remove('map-locked');
+
+        const btn = document.getElementById('action-btn');
         const status = document.getElementById('status');
-        if (!data.Feature || data.Feature.length === 0) {
-            status.innerText = "見つかりませんでした😢";
-            return;
-        }
+        const progressContainer = document.getElementById('progress-container');
+        
+        btn.innerText = "🌿 スキャン開始";
+        btn.className = "btn scan-btn";
+        status.innerText = msg;
+        progressContainer.style.display = "none";
 
-        status.innerText = data.Count + "件のショップを発見！";
-        data.Feature.forEach(f => {
-            const coords = f.Geometry.Coordinates.split(',');
-            const lat = coords[1];
-            const lon = coords[0];
-            const name = f.Name;
-            
-            // Yahoo!が持っている公式URL、なければGoogle検索へ
-            const siteUrl = f.Property.Detail.PcSiteUrl || `https://www.google.com/search?q=${encodeURIComponent(name)}`;
+        const script = document.getElementById('yahoo-script');
+        if (script) script.remove();
+    }
 
-            const content = `
-                <div class="popup-card">
-                    <b>${name}</b>
-                    <a href="${siteUrl}" target="_blank" class="btn hp-btn">🌐 公式サイト・詳細</a>
-                    <a href="https://www.google.com/maps/dir/?api=1&destination=${lat},${lon}" target="_blank" class="btn nav-btn">🚗 ここへ行く（ナビ）</a>
-                </div>
-            `;
+    window.handleResponse = function(data) {
+        if (!isScanning) return;
+        
+        document.getElementById('progress-bar').style.width = "100%";
 
-            const icon = L.icon({
-                iconUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-green.png',
-                iconSize: [25, 41], iconAnchor: [12, 41], popupAnchor: [1, -34]
+        setTimeout(() => {
+            if (!data.Feature || data.Feature.length === 0) {
+                stopScan("近くに見つかりませんでした 😢");
+                return;
+            }
+
+            data.Feature.forEach(f => {
+                const coords = f.Geometry.Coordinates.split(',');
+                const name = f.Name;
+                const siteUrl = f.Property.Detail.PcSiteUrl || `https://www.google.com/search?q=${encodeURIComponent(name)}`;
+
+                const content = `
+                    <div class="popup-card">
+                        <b style="color:#2e7d32;">${name}</b>
+                        <a href="${siteUrl}" target="_blank" class="link-btn hp-btn">🌐 公式サイト・詳細</a>
+                        <a href="https://www.google.com/maps/dir/?api=1&destination=${coords[1]},${coords[0]}" target="_blank" class="link-btn nav-btn">🚗 ここへ行く</a>
+                    </div>
+                `;
+
+                const icon = L.icon({
+                    iconUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-green.png',
+                    iconSize: [25, 41], iconAnchor: [12, 41], popupAnchor: [1, -34]
+                });
+
+                L.marker([coords[1], coords[0]], {icon: icon}).addTo(map).bindPopup(content);
             });
 
-            L.marker([lat, lon], {icon: icon}).addTo(map).bindPopup(content);
-        });
+            stopScan(data.Count + "件見つかりました！");
+        }, 600);
     };
 </script>
 </body>
