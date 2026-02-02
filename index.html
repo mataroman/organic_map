@@ -3,69 +3,60 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <meta name="apple-mobile-web-app-capable" content="yes">
     <title>Organic Hunter ✨</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.css" />
     <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.js"></script>
     <style>
-        :root { --main-green: #2e7d32; --stop-red: #c62828; --bg-glass: rgba(255, 255, 255, 0.9); }
-        body { margin: 0; padding: 0; height: 100dvh; font-family: 'Hiragino Kaku Gothic ProN', sans-serif; overflow: hidden; background: #f0f0f0; }
-        #map { width: 100%; height: 100%; position: absolute; z-index: 1; transition: filter 0.4s; }
-        .map-locked { filter: grayscale(0.8) blur(2px); pointer-events: none; }
+        :root { --main-green: #2e7d32; --stop-red: #c62828; }
+        body { margin: 0; padding: 0; height: 100dvh; font-family: sans-serif; overflow: hidden; background: #000; }
         
-        .crosshair {
-            position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
-            z-index: 2000; pointer-events: none; font-size: 35px; filter: drop-shadow(0 0 5px rgba(0,0,0,0.3));
+        #map { width: 100%; height: 100%; position: absolute; z-index: 1; transition: 0.3s; }
+        .map-locked { opacity: 0.6; filter: grayscale(0.5); pointer-events: none; }
+        
+        /* ワンちゃんの看板 */
+        .dog-banner {
+            position: fixed; top: 15px; left: 15px; z-index: 4000;
+            background: white; padding: 5px; border-radius: 50px;
+            display: flex; align-items: center; box-shadow: 0 4px 10px rgba(0,0,0,0.2);
         }
+        .dog-photo {
+            width: 50px; height: 50px; border-radius: 50%; object-fit: cover;
+            background: #eee; border: 2px solid var(--main-green);
+        }
+        .dog-msg { padding: 0 15px 0 10px; font-weight: bold; font-size: 0.8rem; color: #333; }
 
-        /* 画面下のコントロールパネル */
         .ui { position: fixed; bottom: 30px; left: 0; right: 0; z-index: 3000; text-align: center; }
         .btn {
             color: white; border: none; padding: 18px 45px;
             border-radius: 50px; font-weight: bold; font-size: 1.2rem; box-shadow: 0 10px 25px rgba(0,0,0,0.2);
-            cursor: pointer; min-width: 240px; transition: 0.2s cubic-bezier(0.4, 0, 0.2, 1); -webkit-appearance: none;
+            cursor: pointer; min-width: 240px; -webkit-appearance: none;
         }
-        .scan-btn { background: linear-gradient(135deg, #43a047, #2e7d32); }
-        .stop-btn { background: linear-gradient(135deg, #e53935, #c62828); }
-        .btn:active { transform: scale(0.95); }
+        .scan-btn { background: var(--main-green); }
+        .stop-btn { background: var(--stop-red); }
 
-        /* 進捗バーの高級化 */
         #progress-container {
-            width: 70%; max-width: 250px; height: 6px; background: rgba(0,0,0,0.1);
+            width: 70%; max-width: 250px; height: 8px; background: rgba(255,255,255,0.5);
             margin: 15px auto; border-radius: 10px; overflow: hidden; display: none;
         }
-        #progress-bar { width: 0%; height: 100%; background: var(--main-green); transition: width 0.2s ease-out; }
+        #progress-bar { width: 0%; height: 100%; background: #fff; transition: width 0.1s linear; }
 
         #status {
-            background: var(--bg-glass); padding: 10px 25px; border-radius: 30px;
-            font-size: 0.95rem; display: inline-block; font-weight: bold; color: #333;
-            box-shadow: 0 4px 15px rgba(0,0,0,0.1); border: 1px solid rgba(255,255,255,0.5);
+            background: rgba(255,255,255,0.9); padding: 8px 20px;
+            border-radius: 25px; font-size: 0.9rem; display: inline-block; font-weight: bold;
         }
-
-        /* 現在地ボタン */
-        .locate-btn {
-            position: fixed; top: 20px; right: 20px; z-index: 2000;
-            background: white; border: none; width: 50px; height: 50px; border-radius: 50%;
-            box-shadow: 0 4px 10px rgba(0,0,0,0.2); font-size: 24px; cursor: pointer;
-        }
-
-        /* ポップアップの装飾 */
-        .popup-card { text-align: center; min-width: 200px; padding: 10px 0; }
-        .link-btn {
-            display: block; margin-top: 10px; padding: 12px; text-decoration: none;
-            border-radius: 8px; font-weight: bold; font-size: 0.9rem; transition: background 0.2s;
-        }
-        .hp-btn { background: #e3f2fd; color: #1976d2; border: 1px solid #bbdefb; }
-        .nav-btn { background: #2e7d32; color: white; }
     </style>
 </head>
 <body>
 
-<button class="locate-btn" onclick="moveToCurrentLocation()">📍</button>
-<div id="map"><div class="crosshair">✨</div></div>
+<div class="dog-banner">
+    <img src="https://cdn-icons-png.flaticon.com/512/616/616408.png" class="dog-photo" id="my-dog">
+    <div class="dog-msg">ボクが見つけるワン！</div>
+</div>
+
+<div id="map"></div>
 
 <div class="ui">
-    <div id="status">宝塚の美味しい店、探すよ！</div>
+    <div id="status">宝塚の自然食品を探すワン！</div>
     <div id="progress-container"><div id="progress-bar"></div></div>
     <button id="action-btn" class="btn scan-btn" onclick="toggleScan()">🌿 スキャン開始</button>
 </div>
@@ -73,47 +64,35 @@
 <script>
     const appid = 'dj00aiZpPVhxNDZuMmNxTWtNayZzPWNvbnN1bWVyc2VjcmV0Jng9NTI-';
     let isScanning = false;
-    let progressVal = 0;
+    let pVal = 0;
     let pTimer;
 
     const map = L.map('map', { zoomControl: false }).setView([34.811, 135.341], 15);
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
 
-    function moveToCurrentLocation() {
-        navigator.geolocation.getCurrentPosition(pos => {
-            map.flyTo([pos.coords.latitude, pos.coords.longitude], 15, { duration: 1.5 });
-        });
-    }
-    moveToCurrentLocation();
-
-    function toggleScan() {
-        if (isScanning) { stopScan("中断したよ"); } else { startScan(); }
-    }
+    function toggleScan() { if (isScanning) { stopScan("中止だワン"); } else { startScan(); } }
 
     function startScan() {
         isScanning = true;
         map.dragging.disable(); map.touchZoom.disable();
         document.getElementById('map').classList.add('map-locked');
-
-        const btn = document.getElementById('action-btn');
-        const status = document.getElementById('status');
-        const bar = document.getElementById('progress-bar');
         document.getElementById('progress-container').style.display = "block";
-
-        btn.innerText = "🛑 停止する"; btn.className = "btn stop-btn";
-        status.innerText = "一生懸命、探し中...";
+        const btn = document.getElementById('action-btn');
+        const bar = document.getElementById('progress-bar');
         
-        progressVal = 0;
+        btn.innerText = "🛑 止めるワン！"; btn.className = "btn stop-btn";
+        document.getElementById('status').innerText = "一生懸命クンクンしてるワン...";
+
+        pVal = 0;
         pTimer = setInterval(() => {
-            if (progressVal < 98) {
-                progressVal += (100 - progressVal) * 0.15;
-                bar.style.width = progressVal + "%";
-            }
-        }, 150);
+            pVal += (100 - pVal) * 0.2; // 爆速で進むロジック
+            bar.style.width = pVal + "%";
+            if(pVal > 99) clearInterval(pTimer); // 確実に最後まで行かせる
+        }, 100);
 
         const center = map.getCenter();
         const query = encodeURIComponent('オーガニック 自然食品 無添加 産直');
-        const url = `https://map.yahooapis.jp/search/local/V1/localSearch?appid=${appid}&lat=${center.lat}&lon=${center.lng}&dist=3&query=${query}&output=json&results=30&callback=handleResponse`;
+        const url = `https://map.yahooapis.jp/search/local/V1/localSearch?appid=${appid}&lat=${center.lat}&lon=${center.lng}&dist=3&query=${query}&output=json&results=20&callback=handleResponse`;
 
         const script = document.createElement('script');
         script.id = "yahoo-script"; script.src = url;
@@ -125,53 +104,34 @@
         map.dragging.enable(); map.touchZoom.enable();
         document.getElementById('map').classList.remove('map-locked');
         document.getElementById('progress-container').style.display = "none";
-        
         const btn = document.getElementById('action-btn');
         btn.innerText = "🌿 スキャン開始"; btn.className = "btn scan-btn";
         document.getElementById('status').innerText = msg;
-
         const script = document.getElementById('yahoo-script');
         if (script) script.remove();
     }
 
     window.handleResponse = function(data) {
         if (!isScanning) return;
-        
-        // 100%に弾き飛ばす
         document.getElementById('progress-bar').style.width = "100%";
-        document.getElementById('status').innerText = "見つけたよ！地図に書き込み中...";
 
         setTimeout(() => {
-            if (!data.Feature || data.Feature.length === 0) {
-                stopScan("この辺にはないみたい...😢");
-                return;
-            }
+            if (!data.Feature) { stopScan("見つからなかったワン..."); return; }
 
             data.Feature.forEach((f, i) => {
                 setTimeout(() => {
                     const coords = f.Geometry.Coordinates.split(',');
-                    const name = f.Name;
-                    const siteUrl = f.Property.Detail.PcSiteUrl || `https://www.google.com/search?q=${encodeURIComponent(name)}`;
-
-                    const icon = L.icon({
-                        iconUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-green.png',
-                        iconSize: [25, 41], iconAnchor: [12, 41], popupAnchor: [1, -34]
+                    // 犬のアイコンを作成
+                    const dogIcon = L.divIcon({
+                        html: '🐶', className: 'dog-pin', iconSize: [30, 30], iconAnchor: [15, 15]
                     });
 
-                    // 落下アニメーション（少しずつずらして表示）
-                    L.marker([coords[1], coords[0]], {icon: icon, bounceOnAdd: true}).addTo(map)
-                        .bindPopup(`
-                            <div class="popup-card">
-                                <b style="color:#2e7d32; font-size:1.1rem;">${name}</b>
-                                <a href="${siteUrl}" target="_blank" class="link-btn hp-btn">🔍 詳細を見る</a>
-                                <a href="https://www.google.com/maps/dir/?api=1&destination=${coords[1]},${coords[0]}" target="_blank" class="link-btn nav-btn">🚗 ここへ行く</a>
-                            </div>
-                        `);
-                }, i * 100); // 0.1秒ずつずらしてピンを降らせる
+                    L.marker([coords[1], coords[0]], {icon: dogIcon}).addTo(map)
+                        .bindPopup(`<b>${f.Name}</b><br><a href="https://www.google.com/search?q=${f.Name}" target="_blank">詳細</a>`);
+                }, i * 50);
             });
-
-            setTimeout(() => stopScan(data.Feature.length + "件見つかったよ ✨"), 500);
-        }, 400);
+            stopScan(data.Feature.length + "件見つけたワン！");
+        }, 300);
     };
 </script>
 </body>
