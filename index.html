@@ -42,14 +42,12 @@
 </div>
 
 <script>
-    // Yahoo! Client ID
     const appid = 'dmVyPTIwMjUwNyZpZD1YcTQ2bjJjcU1rJmhhc2g9TlRRNVpURTJZakEyTVRKbVl6TTVZUQ';
     
     let isScanning = false;
     let searchCircle = null;
     let markers = [];
 
-    // マー太郎の台詞集さ
     const startMsgs = [
         "いい匂いがしてきたさ",
         "この辺りをクンクンするさ",
@@ -59,70 +57,42 @@
         "クンクン…お、この辺りは怪しいさ"
     ];
 
-    // 地図の初期設定（宝塚市付近）
     const map = L.map('map', { zoomControl: false }).setView([34.811, 135.341], 15);
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
 
-    function toggleScan() { 
-        if (isScanning) { 
-            stopScan("また後でさ"); 
-        } else { 
-            startScan(); 
-        } 
-    }
+    function toggleScan() { if (isScanning) { stopScan("また後でさ"); } else { startScan(); } }
 
     function startScan() {
         isScanning = true;
-        // 既存のピンを掃除さ
         markers.forEach(m => map.removeLayer(m));
         markers = [];
         
-        // ランダム台詞のセットさ
         const randomMsg = startMsgs[Math.floor(Math.random() * startMsgs.length)];
         document.getElementById('dog-msg-text').innerText = randomMsg;
-        document.getElementById('status').innerText = "広域スキャン中さ。少し待っててくれさ";
+        document.getElementById('status').innerText = "深層サーチ中さ。しっかり嗅ぎ分けるそうさ";
 
         document.getElementById('map').classList.add('map-locked');
         document.getElementById('action-btn').innerText = "🛑 停止するさ";
         document.getElementById('action-btn').className = "btn stop-btn";
 
-        // 地図の中心を取得して、スキャン円を描画さ（半径10km）
         const center = map.getCenter();
         if (searchCircle) map.removeLayer(searchCircle);
         searchCircle = L.circle(center, {
             radius: 10000, color: '#2e7d32', fillColor: '#2e7d32', fillOpacity: 0.15, weight: 2
         }).addTo(map);
 
-        // 【プロ仕様クエリ】有機・自然食品・ヴィーガン・無添加など全方位網羅
-        const keywords = [
-            'オーガニック', 
-            'ORGANIC', 
-            '有機', 
-            '自然食品', 
-            '無添加', 
-            'ヴィーガン', 
-            'VEGAN', 
-            'マクロビオティック', 
-            '健康食品'
-        ];
-        const queryKeywords = keywords.join(' OR ');
-
-        // Yahoo!ローカルサーチAPIへのリクエスト
-        const url = `https://map.yahooapis.jp/search/local/V1/localSearch?appid=${appid}&lat=${center.lat}&lon=${center.lng}&dist=10&query=${encodeURIComponent(queryKeywords)}&results=50&output=json&callback=handleResponse`;
+        // 【最終手段】キーワードを「自然食品」一つに絞り、その代わり「食料品店」カテゴリ(gc=0116)を明示するさ
+        // これでフィルタリングの競合を避けて確実に結果を引っ張るさ
+        const url = `https://map.yahooapis.jp/search/local/V1/localSearch?appid=${appid}&lat=${center.lat}&lon=${center.lng}&dist=10&query=${encodeURIComponent('自然食品')}&gc=0116&results=50&output=json&callback=handleResponse`;
 
         const script = document.createElement('script');
         script.src = url;
         script.id = "api-script";
-        // 通信エラーハンドリングさ
-        script.onerror = () => stopScan("通信エラーさ。設定を確認するさ");
         document.body.appendChild(script);
 
-        // タイムアウト設定さ
         setTimeout(() => {
-            if(isScanning && markers.length === 0) {
-                stopScan("まだ応答がないさ。キーを確認すべきださ");
-            }
-        }, 10000);
+            if(isScanning && markers.length === 0) stopScan("まだ応答がないさ。キーを確認すべきださ");
+        }, 12000);
     }
 
     function stopScan(msg) {
@@ -136,10 +106,8 @@
         if (oldScript) oldScript.remove();
     }
 
-    // APIからの応答処理さ
     window.handleResponse = function(data) {
         if (!isScanning) return;
-        
         if (!data.Feature || data.Feature.length === 0) {
             stopScan("ここには店が見当たらないさ");
             return;
@@ -147,7 +115,6 @@
 
         data.Feature.forEach((f, i) => {
             const coords = f.Geometry.Coordinates.split(',');
-            // マー太郎ピンの作成さ
             const mataroIcon = L.icon({
                 iconUrl: 'mataro.jpg',
                 className: 'mataro-pin',
@@ -156,7 +123,7 @@
                 popupAnchor: [0, -25]
             });
             const m = L.marker([coords[1], coords[0]], {icon: mataroIcon}).addTo(map)
-                .bindPopup(`<b>${f.Name}</b><br><a href="https://www.google.com/search?q=${f.Name}" target="_blank">Googleで検索さ</a>`);
+                .bindPopup(`<b>${f.Name}</b><br><a href="https://www.google.com/search?q=${f.Name}" target="_blank">検索さ</a>`);
             markers.push(m);
         });
         document.getElementById('dog-msg-text').innerText = "見つけたさ！";
