@@ -1,51 +1,73 @@
-<script>
-    // ...（前段のコードは同じ）...
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Organic Map Pro</title>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <style>
+        body { margin: 0; padding: 0; font-family: sans-serif; height: 100vh; display: flex; flex-direction: column; }
+        #map { flex-grow: 1; width: 100vw; }
+        .ui-panel {
+            position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%);
+            z-index: 1000; width: 90%; max-width: 400px; text-align: center;
+        }
+        #scan-btn {
+            background: #2e7d32; color: white; border: none; padding: 18px;
+            width: 100%; border-radius: 50px; font-weight: bold; font-size: 1.1rem;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.3); cursor: pointer;
+        }
+        #scan-btn:active { background: #1b5e20; transform: scale(0.95); }
+        #status {
+            margin-top: 10px; background: rgba(255,255,255,0.9);
+            padding: 5px 15px; border-radius: 20px; font-size: 0.8rem; display: inline-block;
+            border: 1px solid #ddd;
+        }
+    </style>
+</head>
+<body>
 
+<div id="map"></div>
+<div class="ui-panel">
+    <button id="scan-btn" onclick="startScan()">🌿 このエリアをスキャン</button>
+    <div id="status">準備完了</div>
+</div>
+
+<script>
+    // 1. 地図の初期化
+    const map = L.map('map').setView([34.81, 135.34], 14); // 初期位置を宝塚付近に設定
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
+
+    let firstTime = true;
+
+    // 2. スキャン開始ボタンの処理
+    function startScan() {
+        const status = document.getElementById('status');
+        if (firstTime) {
+            status.innerText = "現在地を特定中...";
+            navigator.geolocation.getCurrentPosition(pos => {
+                const lat = pos.coords.latitude;
+                const lon = pos.coords.longitude;
+                map.setView([lat, lon], 14);
+                L.marker([lat, lon]).addTo(map).bindPopup("現在地").openPopup();
+                firstTime = false;
+                executeSearch(lat, lon);
+            }, err => {
+                status.innerText = "GPSエラー。今の地図の中心で検索します。";
+                firstTime = false;
+                const center = map.getCenter();
+                executeSearch(center.lat, center.lng);
+            });
+        } else {
+            const center = map.getCenter();
+            executeSearch(center.lat, center.lng);
+        }
+    }
+
+    // 3. サーバーへ店舗データを問い合わせる（冗長化）
     async function executeSearch(lat, lon) {
         const status = document.getElementById('status');
-        status.innerText = "サーバーに接続中（1/2）...";
+        status.innerText = "サーバーに接続中...";
 
-        const query = `[out:json][timeout:15];(node["shop"~"organic|health_food"](around:5000,${lat},${lon});node["name"~"有機|自然食品|産直|オーガニック"](around:5000,${lat},${lon}););out;`;
-        const encodedQuery = encodeURIComponent(query);
-        
-        // 予備サーバーのリスト（冗長化）
-        const servers = [
-            "https://overpass-api.de/api/interpreter",
-            "https://overpass.kumi.systems/api/interpreter",
-            "https://overpass.nchc.org.tw/api/interpreter"
-        ];
-
-        for (const baseUrl of servers) {
-            try {
-                const response = await fetch(`${baseUrl}?data=${encodedQuery}`);
-                if (!response.ok) throw new Error();
-                
-                const data = await response.json();
-                renderMarkers(data); // 成功したら表示処理へ
-                return; // 完了したら終了
-            } catch (e) {
-                status.innerText = "サーバーを切り替えて再試行中...";
-                continue; // 次のサーバーを試す
-            }
-        }
-        status.innerText = "全サーバーが応答しません。時間を置いて試してください。";
-    }
-
-    function renderMarkers(data) {
-        const status = document.getElementById('status');
-        if (!data.elements || data.elements.length === 0) {
-            status.innerText = "この付近には見つかりませんでした";
-            return;
-        }
-        status.innerText = `${data.elements.length}軒の店舗を発見！`;
-        data.elements.forEach(el => {
-            const name = el.tags.name || "自然食品店";
-            const greenIcon = L.icon({
-                iconUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-green.png',
-                iconSize: [25, 41], iconAnchor: [12, 41], popupAnchor: [1, -34]
-            });
-            L.marker([el.lat, el.lon], {icon: greenIcon}).addTo(map)
-                .bindPopup(`<b>${name}</b><br><br><a href="https://www.google.com/maps/dir/?api=1&destination=${el.lat},${el.lon}" target="_blank" style="background:#f39c12;color:white;padding:8px 12px;text-decoration:none;border-radius:5px;display:inline-block;">ここへ行く(ナビ)</a>`);
-        });
-    }
-</script>
+        const query = `[out:json][timeout:15];(node["shop"~"organic|health
