@@ -1,73 +1,45 @@
 <!DOCTYPE html>
-<html lang="ja">
+<html>
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Organic Map Pro</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>Organic Map</title>
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <style>
-        body { margin: 0; padding: 0; font-family: sans-serif; height: 100vh; display: flex; flex-direction: column; }
-        #map { flex-grow: 1; width: 100vw; }
-        .ui-panel {
-            position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%);
-            z-index: 1000; width: 90%; max-width: 400px; text-align: center;
+        html, body { height: 100%; margin: 0; padding: 0; }
+        #map { width: 100%; height: 100%; z-index: 1; }
+        .ui {
+            position: fixed; bottom: 20px; left: 0; right: 0;
+            z-index: 1000; text-align: center;
         }
-        #scan-btn {
-            background: #2e7d32; color: white; border: none; padding: 18px;
-            width: 100%; border-radius: 50px; font-weight: bold; font-size: 1.1rem;
-            box-shadow: 0 4px 15px rgba(0,0,0,0.3); cursor: pointer;
-        }
-        #scan-btn:active { background: #1b5e20; transform: scale(0.95); }
-        #status {
-            margin-top: 10px; background: rgba(255,255,255,0.9);
-            padding: 5px 15px; border-radius: 20px; font-size: 0.8rem; display: inline-block;
-            border: 1px solid #ddd;
+        button {
+            background: #2e7d32; color: white; border: none; padding: 18px 30px;
+            border-radius: 50px; font-weight: bold; font-size: 1.1rem;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.3); width: 80%;
         }
     </style>
 </head>
 <body>
 
 <div id="map"></div>
-<div class="ui-panel">
-    <button id="scan-btn" onclick="startScan()">🌿 このエリアをスキャン</button>
-    <div id="status">準備完了</div>
+<div class="ui">
+    <button onclick="locateAndScan()">🌿 現在地周辺をスキャン</button>
 </div>
 
 <script>
-    // 1. 地図の初期化
-    const map = L.map('map').setView([34.81, 135.34], 14); // 初期位置を宝塚付近に設定
-    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
+    // 地図の土台を即座に作成（世界地図レベルで初期化）
+    const map = L.map('map').setView([0, 0], 2);
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        attribution: '&copy; OpenStreetMap contributors'
+    }).addTo(map);
 
-    let firstTime = true;
-
-    // 2. スキャン開始ボタンの処理
-    function startScan() {
-        const status = document.getElementById('status');
-        if (firstTime) {
-            status.innerText = "現在地を特定中...";
-            navigator.geolocation.getCurrentPosition(pos => {
-                const lat = pos.coords.latitude;
-                const lon = pos.coords.longitude;
-                map.setView([lat, lon], 14);
-                L.marker([lat, lon]).addTo(map).bindPopup("現在地").openPopup();
-                firstTime = false;
-                executeSearch(lat, lon);
-            }, err => {
-                status.innerText = "GPSエラー。今の地図の中心で検索します。";
-                firstTime = false;
-                const center = map.getCenter();
-                executeSearch(center.lat, center.lng);
-            });
-        } else {
-            const center = map.getCenter();
-            executeSearch(center.lat, center.lng);
-        }
-    }
-
-    // 3. サーバーへ店舗データを問い合わせる（冗長化）
-    async function executeSearch(lat, lon) {
-        const status = document.getElementById('status');
-        status.innerText = "サーバーに接続中...";
-
-        const query = `[out:json][timeout:15];(node["shop"~"organic|health
+    function locateAndScan() {
+        // GPS取得できなければ即アラート。不要な初期位置設定は全カット。
+        navigator.geolocation.getCurrentPosition(pos => {
+            const { latitude: lat, longitude: lon } = pos.coords;
+            map.setView([lat, lon], 15);
+            L.marker([lat, lon]).addTo(map).bindPopup("現在地").openPopup();
+            
+            // 店舗検索を実行
+            fetchStores(lat, lon
