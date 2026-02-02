@@ -10,19 +10,13 @@
     <style>
         :root { --main-green: #2e7d32; --stop-red: #c62828; }
         body { margin: 0; padding: 0; height: 100dvh; font-family: sans-serif; overflow: hidden; background: #000; }
-        
-        /* 地図のスタイル */
-        #map { width: 100%; height: 100%; position: absolute; z-index: 1; transition: opacity 0.3s, filter 0.3s; }
-        /* スキャン中のロック状態の見た目 */
-        .map-locked { opacity: 0.7; filter: grayscale(0.5) blur(1px); pointer-events: none; }
-        
+        #map { width: 100%; height: 100%; position: absolute; z-index: 1; transition: opacity 0.3s; }
+        .map-locked { opacity: 0.6; filter: grayscale(0.5); pointer-events: none; }
         .crosshair {
             position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
             z-index: 2000; pointer-events: none; font-size: 32px; filter: drop-shadow(0 0 2px white);
         }
-
         .ui { position: fixed; bottom: 30px; left: 0; right: 0; z-index: 3000; text-align: center; }
-        
         .btn {
             color: white; border: none; padding: 16px 40px;
             border-radius: 50px; font-weight: bold; font-size: 1.1rem; box-shadow: 0 4px 15px rgba(0,0,0,0.3);
@@ -30,20 +24,17 @@
         }
         .scan-btn { background: var(--main-green); }
         .stop-btn { background: var(--stop-red); }
-
         #progress-container {
-            width: 80%; max-width: 300px; height: 10px; background: rgba(255,255,255,0.8);
+            width: 80%; max-width: 300px; height: 8px; background: rgba(255,255,255,0.8);
             margin: 10px auto; border-radius: 10px; overflow: hidden; display: none;
         }
-        #progress-bar { width: 0%; height: 100%; background: var(--main-green); transition: width 0.1s; }
-
+        /* transitionを滑らかに調整 */
+        #progress-bar { width: 0%; height: 100%; background: var(--main-green); transition: width 0.3s linear; }
         #status {
             background: rgba(255,255,255,0.95); padding: 8px 20px;
             border-radius: 25px; font-size: 0.9rem; display: inline-block; font-weight: bold; margin-bottom: 5px;
-            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
         }
-        
-        .popup-card { text-align: center; padding: 5px; }
+        .popup-card { text-align: center; }
         .link-btn {
             display: block; margin-top: 8px; padding: 10px; text-decoration: none;
             border-radius: 5px; font-weight: bold; font-size: 0.9rem;
@@ -65,8 +56,8 @@
 <script>
     const appid = 'dj00aiZpPVhxNDZuMmNxTWtNayZzPWNvbnN1bWVyc2VjcmV0Jng9NTI-';
     let isScanning = false;
+    let progressTimer = null;
 
-    // 地図初期化
     var map = L.map('map', { zoomControl: false }).setView([34.811, 135.341], 15);
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
 
@@ -75,39 +66,33 @@
     });
 
     function toggleScan() {
-        if (isScanning) {
-            stopScan("スキャンを中止しました");
-        } else {
-            startScan();
-        }
+        if (isScanning) { stopScan("中断しました"); } else { startScan(); }
     }
 
     function startScan() {
         isScanning = true;
-        
-        // --- 地図の操作をロック ---
-        map.dragging.disable();
-        map.touchZoom.disable();
-        map.doubleClickZoom.disable();
-        map.scrollWheelZoom.disable();
+        map.dragging.disable(); map.touchZoom.disable(); map.doubleClickZoom.disable();
         document.getElementById('map').classList.add('map-locked');
 
         const btn = document.getElementById('action-btn');
         const status = document.getElementById('status');
-        const progressContainer = document.getElementById('progress-container');
-        const progressBar = document.getElementById('progress-bar');
+        const container = document.getElementById('progress-container');
+        const bar = document.getElementById('progress-bar');
 
         btn.innerText = "🛑 スキャン停止";
         btn.className = "btn stop-btn";
-        status.innerText = "ショップを探索中（ロック中）";
-        progressContainer.style.display = "block";
-        progressBar.style.width = "0%";
+        status.innerText = "探索中...";
+        container.style.display = "block";
+        bar.style.width = "0%";
 
-        let progress = 0;
-        const interval = setInterval(() => {
-            if (!isScanning) { clearInterval(interval); return; }
-            if (progress < 90) { progress += 3; progressBar.style.width = progress + "%"; }
-        }, 100);
+        // 【改良】バーを止まらせないアニメーション
+        let currentWidth = 0;
+        progressTimer = setInterval(() => {
+            if (currentWidth < 95) {
+                currentWidth += (100 - currentWidth) * 0.1; // 徐々に減速しながらも進み続ける
+                bar.style.width = currentWidth + "%";
+            }
+        }, 200);
 
         const center = map.getCenter();
         const query = encodeURIComponent('オーガニック 自然食品 無添加 産直');
@@ -121,22 +106,17 @@
 
     function stopScan(msg) {
         isScanning = false;
-        
-        // --- 地図の操作ロックを解除 ---
-        map.dragging.enable();
-        map.touchZoom.enable();
-        map.doubleClickZoom.enable();
-        map.scrollWheelZoom.enable();
+        clearInterval(progressTimer);
+        map.dragging.enable(); map.touchZoom.enable(); map.doubleClickZoom.enable();
         document.getElementById('map').classList.remove('map-locked');
 
         const btn = document.getElementById('action-btn');
         const status = document.getElementById('status');
-        const progressContainer = document.getElementById('progress-container');
+        document.getElementById('progress-container').style.display = "none";
         
         btn.innerText = "🌿 スキャン開始";
         btn.className = "btn scan-btn";
         status.innerText = msg;
-        progressContainer.style.display = "none";
 
         const script = document.getElementById('yahoo-script');
         if (script) script.remove();
@@ -145,7 +125,8 @@
     window.handleResponse = function(data) {
         if (!isScanning) return;
         
-        document.getElementById('progress-bar').style.width = "100%";
+        const bar = document.getElementById('progress-bar');
+        bar.style.width = "100%"; // 完了した瞬間に振り切る
 
         setTimeout(() => {
             if (!data.Feature || data.Feature.length === 0) {
@@ -174,8 +155,8 @@
                 L.marker([coords[1], coords[0]], {icon: icon}).addTo(map).bindPopup(content);
             });
 
-            stopScan(data.Count + "件見つかりました！");
-        }, 600);
+            stopScan(data.Feature.length + "件見つかりました！");
+        }, 300); // 100%を見せてから少しだけ余韻を置いて終了
     };
 </script>
 </body>
