@@ -8,47 +8,64 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.css" />
     <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.js"></script>
     <style>
-        :root { --main-green: #2e7d32; --stop-red: #c62828; }
-        body { margin: 0; padding: 0; height: 100dvh; font-family: sans-serif; overflow: hidden; background: #000; }
-        #map { width: 100%; height: 100%; position: absolute; z-index: 1; transition: opacity 0.3s; }
-        .map-locked { opacity: 0.6; filter: grayscale(0.5); pointer-events: none; }
+        :root { --main-green: #2e7d32; --stop-red: #c62828; --bg-glass: rgba(255, 255, 255, 0.9); }
+        body { margin: 0; padding: 0; height: 100dvh; font-family: 'Hiragino Kaku Gothic ProN', sans-serif; overflow: hidden; background: #f0f0f0; }
+        #map { width: 100%; height: 100%; position: absolute; z-index: 1; transition: filter 0.4s; }
+        .map-locked { filter: grayscale(0.8) blur(2px); pointer-events: none; }
+        
         .crosshair {
             position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
-            z-index: 2000; pointer-events: none; font-size: 32px; filter: drop-shadow(0 0 2px white);
+            z-index: 2000; pointer-events: none; font-size: 35px; filter: drop-shadow(0 0 5px rgba(0,0,0,0.3));
         }
+
+        /* 画面下のコントロールパネル */
         .ui { position: fixed; bottom: 30px; left: 0; right: 0; z-index: 3000; text-align: center; }
         .btn {
-            color: white; border: none; padding: 16px 40px;
-            border-radius: 50px; font-weight: bold; font-size: 1.1rem; box-shadow: 0 4px 15px rgba(0,0,0,0.3);
-            cursor: pointer; min-width: 220px; transition: 0.3s; -webkit-appearance: none;
+            color: white; border: none; padding: 18px 45px;
+            border-radius: 50px; font-weight: bold; font-size: 1.2rem; box-shadow: 0 10px 25px rgba(0,0,0,0.2);
+            cursor: pointer; min-width: 240px; transition: 0.2s cubic-bezier(0.4, 0, 0.2, 1); -webkit-appearance: none;
         }
-        .scan-btn { background: var(--main-green); }
-        .stop-btn { background: var(--stop-red); }
+        .scan-btn { background: linear-gradient(135deg, #43a047, #2e7d32); }
+        .stop-btn { background: linear-gradient(135deg, #e53935, #c62828); }
+        .btn:active { transform: scale(0.95); }
+
+        /* 進捗バーの高級化 */
         #progress-container {
-            width: 80%; max-width: 300px; height: 8px; background: rgba(255,255,255,0.8);
-            margin: 10px auto; border-radius: 10px; overflow: hidden; display: none;
+            width: 70%; max-width: 250px; height: 6px; background: rgba(0,0,0,0.1);
+            margin: 15px auto; border-radius: 10px; overflow: hidden; display: none;
         }
-        /* transitionを滑らかに調整 */
-        #progress-bar { width: 0%; height: 100%; background: var(--main-green); transition: width 0.3s linear; }
+        #progress-bar { width: 0%; height: 100%; background: var(--main-green); transition: width 0.2s ease-out; }
+
         #status {
-            background: rgba(255,255,255,0.95); padding: 8px 20px;
-            border-radius: 25px; font-size: 0.9rem; display: inline-block; font-weight: bold; margin-bottom: 5px;
+            background: var(--bg-glass); padding: 10px 25px; border-radius: 30px;
+            font-size: 0.95rem; display: inline-block; font-weight: bold; color: #333;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.1); border: 1px solid rgba(255,255,255,0.5);
         }
-        .popup-card { text-align: center; }
+
+        /* 現在地ボタン */
+        .locate-btn {
+            position: fixed; top: 20px; right: 20px; z-index: 2000;
+            background: white; border: none; width: 50px; height: 50px; border-radius: 50%;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.2); font-size: 24px; cursor: pointer;
+        }
+
+        /* ポップアップの装飾 */
+        .popup-card { text-align: center; min-width: 200px; padding: 10px 0; }
         .link-btn {
-            display: block; margin-top: 8px; padding: 10px; text-decoration: none;
-            border-radius: 5px; font-weight: bold; font-size: 0.9rem;
+            display: block; margin-top: 10px; padding: 12px; text-decoration: none;
+            border-radius: 8px; font-weight: bold; font-size: 0.9rem; transition: background 0.2s;
         }
-        .hp-btn { background: #e3f2fd; color: #1976d2; }
-        .nav-btn { background: #f39c12; color: white; }
+        .hp-btn { background: #e3f2fd; color: #1976d2; border: 1px solid #bbdefb; }
+        .nav-btn { background: #2e7d32; color: white; }
     </style>
 </head>
 <body>
 
+<button class="locate-btn" onclick="moveToCurrentLocation()">📍</button>
 <div id="map"><div class="crosshair">✨</div></div>
 
 <div class="ui">
-    <div id="status">「✨」を合わせてスキャン！</div>
+    <div id="status">宝塚の美味しい店、探すよ！</div>
     <div id="progress-container"><div id="progress-bar"></div></div>
     <button id="action-btn" class="btn scan-btn" onclick="toggleScan()">🌿 スキャン開始</button>
 </div>
@@ -56,67 +73,62 @@
 <script>
     const appid = 'dj00aiZpPVhxNDZuMmNxTWtNayZzPWNvbnN1bWVyc2VjcmV0Jng9NTI-';
     let isScanning = false;
-    let progressTimer = null;
+    let progressVal = 0;
+    let pTimer;
 
-    var map = L.map('map', { zoomControl: false }).setView([34.811, 135.341], 15);
+    const map = L.map('map', { zoomControl: false }).setView([34.811, 135.341], 15);
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
 
-    navigator.geolocation.getCurrentPosition(pos => {
-        map.flyTo([pos.coords.latitude, pos.coords.longitude], 15);
-    });
+    function moveToCurrentLocation() {
+        navigator.geolocation.getCurrentPosition(pos => {
+            map.flyTo([pos.coords.latitude, pos.coords.longitude], 15, { duration: 1.5 });
+        });
+    }
+    moveToCurrentLocation();
 
     function toggleScan() {
-        if (isScanning) { stopScan("中断しました"); } else { startScan(); }
+        if (isScanning) { stopScan("中断したよ"); } else { startScan(); }
     }
 
     function startScan() {
         isScanning = true;
-        map.dragging.disable(); map.touchZoom.disable(); map.doubleClickZoom.disable();
+        map.dragging.disable(); map.touchZoom.disable();
         document.getElementById('map').classList.add('map-locked');
 
         const btn = document.getElementById('action-btn');
         const status = document.getElementById('status');
-        const container = document.getElementById('progress-container');
         const bar = document.getElementById('progress-bar');
+        document.getElementById('progress-container').style.display = "block";
 
-        btn.innerText = "🛑 スキャン停止";
-        btn.className = "btn stop-btn";
-        status.innerText = "探索中...";
-        container.style.display = "block";
-        bar.style.width = "0%";
-
-        // 【改良】バーを止まらせないアニメーション
-        let currentWidth = 0;
-        progressTimer = setInterval(() => {
-            if (currentWidth < 95) {
-                currentWidth += (100 - currentWidth) * 0.1; // 徐々に減速しながらも進み続ける
-                bar.style.width = currentWidth + "%";
+        btn.innerText = "🛑 停止する"; btn.className = "btn stop-btn";
+        status.innerText = "一生懸命、探し中...";
+        
+        progressVal = 0;
+        pTimer = setInterval(() => {
+            if (progressVal < 98) {
+                progressVal += (100 - progressVal) * 0.15;
+                bar.style.width = progressVal + "%";
             }
-        }, 200);
+        }, 150);
 
         const center = map.getCenter();
         const query = encodeURIComponent('オーガニック 自然食品 無添加 産直');
-        const url = `https://map.yahooapis.jp/search/local/V1/localSearch?appid=${appid}&lat=${center.lat}&lon=${center.lng}&dist=3&query=${query}&output=json&results=20&callback=handleResponse`;
+        const url = `https://map.yahooapis.jp/search/local/V1/localSearch?appid=${appid}&lat=${center.lat}&lon=${center.lng}&dist=3&query=${query}&output=json&results=30&callback=handleResponse`;
 
         const script = document.createElement('script');
-        script.id = "yahoo-script";
-        script.src = url;
+        script.id = "yahoo-script"; script.src = url;
         document.body.appendChild(script);
     }
 
     function stopScan(msg) {
-        isScanning = false;
-        clearInterval(progressTimer);
-        map.dragging.enable(); map.touchZoom.enable(); map.doubleClickZoom.enable();
+        isScanning = false; clearInterval(pTimer);
+        map.dragging.enable(); map.touchZoom.enable();
         document.getElementById('map').classList.remove('map-locked');
-
-        const btn = document.getElementById('action-btn');
-        const status = document.getElementById('status');
         document.getElementById('progress-container').style.display = "none";
         
-        btn.innerText = "🌿 スキャン開始";
-        btn.className = "btn scan-btn";
-        status.innerText = msg;
+        const btn = document.getElementById('action-btn');
+        btn.innerText = "🌿 スキャン開始"; btn.className = "btn scan-btn";
+        document.getElementById('status').innerText = msg;
 
         const script = document.getElementById('yahoo-script');
         if (script) script.remove();
@@ -125,38 +137,41 @@
     window.handleResponse = function(data) {
         if (!isScanning) return;
         
-        const bar = document.getElementById('progress-bar');
-        bar.style.width = "100%"; // 完了した瞬間に振り切る
+        // 100%に弾き飛ばす
+        document.getElementById('progress-bar').style.width = "100%";
+        document.getElementById('status').innerText = "見つけたよ！地図に書き込み中...";
 
         setTimeout(() => {
             if (!data.Feature || data.Feature.length === 0) {
-                stopScan("近くに見つかりませんでした 😢");
+                stopScan("この辺にはないみたい...😢");
                 return;
             }
 
-            data.Feature.forEach(f => {
-                const coords = f.Geometry.Coordinates.split(',');
-                const name = f.Name;
-                const siteUrl = f.Property.Detail.PcSiteUrl || `https://www.google.com/search?q=${encodeURIComponent(name)}`;
+            data.Feature.forEach((f, i) => {
+                setTimeout(() => {
+                    const coords = f.Geometry.Coordinates.split(',');
+                    const name = f.Name;
+                    const siteUrl = f.Property.Detail.PcSiteUrl || `https://www.google.com/search?q=${encodeURIComponent(name)}`;
 
-                const content = `
-                    <div class="popup-card">
-                        <b style="color:#2e7d32;">${name}</b>
-                        <a href="${siteUrl}" target="_blank" class="link-btn hp-btn">🌐 公式サイト・詳細</a>
-                        <a href="https://www.google.com/maps/dir/?api=1&destination=${coords[1]},${coords[0]}" target="_blank" class="link-btn nav-btn">🚗 ここへ行く</a>
-                    </div>
-                `;
+                    const icon = L.icon({
+                        iconUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-green.png',
+                        iconSize: [25, 41], iconAnchor: [12, 41], popupAnchor: [1, -34]
+                    });
 
-                const icon = L.icon({
-                    iconUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-green.png',
-                    iconSize: [25, 41], iconAnchor: [12, 41], popupAnchor: [1, -34]
-                });
-
-                L.marker([coords[1], coords[0]], {icon: icon}).addTo(map).bindPopup(content);
+                    // 落下アニメーション（少しずつずらして表示）
+                    L.marker([coords[1], coords[0]], {icon: icon, bounceOnAdd: true}).addTo(map)
+                        .bindPopup(`
+                            <div class="popup-card">
+                                <b style="color:#2e7d32; font-size:1.1rem;">${name}</b>
+                                <a href="${siteUrl}" target="_blank" class="link-btn hp-btn">🔍 詳細を見る</a>
+                                <a href="https://www.google.com/maps/dir/?api=1&destination=${coords[1]},${coords[0]}" target="_blank" class="link-btn nav-btn">🚗 ここへ行く</a>
+                            </div>
+                        `);
+                }, i * 100); // 0.1秒ずつずらしてピンを降らせる
             });
 
-            stopScan(data.Feature.length + "件見つかりました！");
-        }, 300); // 100%を見せてから少しだけ余韻を置いて終了
+            setTimeout(() => stopScan(data.Feature.length + "件見つかったよ ✨"), 500);
+        }, 400);
     };
 </script>
 </body>
