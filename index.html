@@ -8,23 +8,35 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.js"></script>
     <style>
         :root { --main-green: #2e7d32; --stop-red: #c62828; }
-        body { margin: 0; padding: 0; height: 100dvh; font-family: sans-serif; overflow: hidden; background: #000; }
+        body { margin: 0; padding: 0; height: 100dvh; font-family: sans-serif; overflow: hidden; background: #f4f7f4; }
         #map { width: 100%; height: 100%; position: absolute; z-index: 1; transition: 0.3s; }
         .map-locked { opacity: 0.8; filter: brightness(0.6); pointer-events: none; }
+        
+        /* マー太郎バナー */
         .dog-banner {
             position: fixed; top: 15px; left: 15px; z-index: 4000;
             background: white; padding: 5px; border-radius: 50px;
-            display: flex; align-items: center; box-shadow: 0 4px 10px rgba(0,0,0,0.2);
+            display: flex; align-items: center; box-shadow: 0 4px 15px rgba(0,0,0,0.2);
             border: 2px solid var(--main-green);
         }
         .dog-photo { width: 50px; height: 50px; border-radius: 50%; object-fit: cover; }
         .dog-msg { padding: 0 15px 0 10px; font-weight: bold; font-size: 0.85rem; color: #333; min-width: 140px; }
+
+        /* UIエリア */
         .ui { position: fixed; bottom: 30px; left: 0; right: 0; z-index: 3000; text-align: center; }
-        .btn { color: white; border: none; padding: 18px 45px; border-radius: 50px; font-weight: bold; font-size: 1.2rem; cursor: pointer; min-width: 240px; box-shadow: 0 5px 15px rgba(0,0,0,0.3); }
+        .btn { color: white; border: none; padding: 18px 45px; border-radius: 50px; font-weight: bold; font-size: 1.2rem; cursor: pointer; min-width: 240px; box-shadow: 0 5px 15px rgba(0,0,0,0.3); transition: 0.2s; }
+        .btn:active { transform: scale(0.95); }
         .scan-btn { background: var(--main-green); }
         .stop-btn { background: var(--stop-red); }
-        #status { background: rgba(255,255,255,0.95); padding: 8px 20px; border-radius: 25px; font-size: 0.85rem; display: inline-block; font-weight: bold; margin-bottom: 5px; color: #333; }
-        .mataro-pin { width: 50px !important; height: 50px !important; border: 3px solid #fff; border-radius: 50%; object-fit: cover; }
+        #status { background: rgba(255,255,255,0.95); padding: 8px 20px; border-radius: 25px; font-size: 0.85rem; display: inline-block; font-weight: bold; margin-bottom: 8px; color: #333; box-shadow: 0 2px 5px rgba(0,0,0,0.1); }
+
+        /* ポップアップの改善 */
+        .leaflet-popup-content { font-size: 0.9rem; line-height: 1.4; min-width: 200px; }
+        .shop-name { font-weight: bold; color: var(--main-green); font-size: 1.1rem; margin-bottom: 5px; display: block; }
+        .shop-desc { color: #666; font-size: 0.8rem; margin-bottom: 8px; display: block; }
+        .search-link { display: inline-block; background: #4285f4; color: white; padding: 5px 12px; border-radius: 4px; text-decoration: none; font-weight: bold; margin-top: 5px; }
+        
+        .mataro-pin { width: 50px !important; height: 50px !important; border: 3px solid #fff; border-radius: 50%; object-fit: cover; box-shadow: 0 3px 10px rgba(0,0,0,0.4); }
     </style>
 </head>
 <body>
@@ -48,7 +60,13 @@
     let searchCircle = null;
     let markers = [];
 
-    const startMsgs = ["いい匂いがしてきたさ", "この辺りをクンクンするさ", "この場所のオーガニックを探してみるさ"];
+    const startMsgs = [
+        "いい匂いがしてきたさ",
+        "この辺りをクンクンするさ",
+        "この場所のオーガニックを探してみるさ",
+        "ボチボチ始めるさ。鼻は利く方さ",
+        "クンクン…お、この辺りは怪しいさ"
+    ];
 
     const map = L.map('map', { zoomControl: false }).setView([34.811, 135.341], 15);
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
@@ -61,18 +79,18 @@
         markers = [];
         
         document.getElementById('dog-msg-text').innerText = startMsgs[Math.floor(Math.random() * startMsgs.length)];
-        document.getElementById('status').innerText = "カテゴリ直接スキャン中さ...";
+        document.getElementById('status').innerText = "広域スキャン中さ。情報の鮮度を確かめてるそうさ";
         document.getElementById('map').classList.add('map-locked');
         document.getElementById('action-btn').innerText = "🛑 停止するさ";
         document.getElementById('action-btn').className = "btn stop-btn";
 
         const center = map.getCenter();
         if (searchCircle) map.removeLayer(searchCircle);
-        searchCircle = L.circle(center, { radius: 10000, color: '#2e7d32', fillOpacity: 0.1 }).addTo(map);
+        searchCircle = L.circle(center, { radius: 10000, color: '#2e7d32', fillOpacity: 0.1, weight: 2 }).addTo(map);
 
-        // 【大修正】queryを完全に削除し、業種コード gc=0116 (食料品店) のみを投げるさ
-        // これで「オーガニック」という言葉に関係なく、周辺の店がドバっと出るはずさ
-        const url = `https://map.yahooapis.jp/search/local/V1/localSearch?appid=${appid}&lat=${center.lat}&lon=${center.lng}&dist=10&gc=0116&results=50&output=json&callback=handleResponse`;
+        // クエリを最適化: 業種コード gc=0116 (食料品店) を使いつつ、キーワードでフィルタリング
+        const query = encodeURIComponent('オーガニック OR 自然食品 OR 有機 OR 無添加');
+        const url = `https://map.yahooapis.jp/search/local/V1/localSearch?appid=${appid}&lat=${center.lat}&lon=${center.lng}&dist=10&query=${query}&gc=0116&results=50&output=json&callback=handleResponse`;
 
         const script = document.createElement('script');
         script.src = url;
@@ -101,9 +119,16 @@
 
         data.Feature.forEach((f) => {
             const coords = f.Geometry.Coordinates.split(',');
+            // 概要(CatchCopy)があれば取得、なければ住所を表示
+            const desc = f.Property.CatchCopy || f.Property.Address || "詳細は検索してみてくれさ";
+            
             const m = L.marker([coords[1], coords[0]], {
                 icon: L.icon({ iconUrl: 'mataro.jpg', className: 'mataro-pin', iconSize: [50, 50], iconAnchor: [25, 25] })
-            }).addTo(map).bindPopup(`<b>${f.Name}</b>`);
+            }).addTo(map).bindPopup(`
+                <span class="shop-name">${f.Name}</span>
+                <span class="shop-desc">${desc}</span>
+                <a href="https://www.google.com/search?q=${encodeURIComponent(f.Name + ' ' + f.Property.Address)}" target="_blank" class="search-link">Googleで詳しく見るさ</a>
+            `);
             markers.push(m);
         });
         document.getElementById('dog-msg-text').innerText = "見つけたさ！";
