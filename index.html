@@ -7,52 +7,63 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.css" />
     <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.js"></script>
     <style>
-        :root { --main-green: #2e7d32; --stop-red: #c62828; }
-        body { margin: 0; padding: 0; height: 100dvh; font-family: sans-serif; background: #000; overflow: hidden; }
+        :root { --main-green: #2e7d32; --stop-red: #c62828; --accent-blue: #1a73e8; }
+        body { margin: 0; padding: 0; height: 100dvh; font-family: 'Helvetica Neue', Arial, sans-serif; background: #f0f2f0; overflow: hidden; }
         
-        /* 地図を画面いっぱいに広げるさ */
-        #map { width: 100%; height: 100%; position: absolute; top: 0; left: 0; z-index: 1; }
-        
-        /* マー太郎のバナー */
-        .dog-banner {
-            position: fixed; top: 15px; left: 15px; z-index: 4000;
-            background: white; padding: 5px; border-radius: 50px;
-            display: flex; align-items: center; box-shadow: 0 4px 10px rgba(0,0,0,0.3);
-            border: 2px solid var(--main-green);
-        }
-        .dog-photo { width: 50px; height: 50px; border-radius: 50%; object-fit: cover; }
-        .dog-msg { padding: 0 15px 0 10px; font-weight: bold; font-size: 0.85rem; color: #333; min-width: 140px; }
+        #map { width: 100%; height: 100%; position: absolute; z-index: 1; }
 
-        /* UIエリア */
-        .ui { position: fixed; bottom: 30px; left: 0; right: 0; z-index: 3000; text-align: center; }
+        /* マー太郎のバナー（UIの格上げさ） */
+        .dog-banner {
+            position: fixed; top: 20px; left: 20px; z-index: 4000;
+            background: white; padding: 6px; border-radius: 50px;
+            display: flex; align-items: center; box-shadow: 0 4px 15px rgba(0,0,0,0.2);
+            border: 1px solid #ddd;
+        }
+        .dog-photo { width: 48px; height: 48px; border-radius: 50%; object-fit: cover; }
+        .dog-msg { padding: 0 18px 0 10px; font-weight: 600; font-size: 0.9rem; color: #2e7d32; min-width: 150px; }
+
+        /* 操作パネル */
+        .ui { position: fixed; bottom: 40px; left: 0; right: 0; z-index: 3000; text-align: center; }
+        #status { 
+            background: rgba(255,255,255,0.9); padding: 8px 24px; border-radius: 30px; 
+            font-size: 0.85rem; display: inline-block; font-weight: bold; margin-bottom: 12px; 
+            color: #444; box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
         .btn { 
-            color: white; border: none; padding: 18px 45px; border-radius: 50px; 
-            font-weight: bold; font-size: 1.2rem; cursor: pointer; 
-            min-width: 240px; box-shadow: 0 5px 20px rgba(0,0,0,0.5); 
-            display: inline-block;
+            color: white; border: none; padding: 16px 50px; border-radius: 50px; 
+            font-weight: bold; font-size: 1.1rem; cursor: pointer; 
+            min-width: 260px; box-shadow: 0 6px 20px rgba(0,0,0,0.3); transition: 0.3s;
         }
         .scan-btn { background: var(--main-green); }
         .stop-btn { background: var(--stop-red); }
-        #status { 
-            background: rgba(255,255,255,0.95); padding: 8px 20px; 
-            border-radius: 25px; font-size: 0.85rem; display: inline-block; 
-            font-weight: bold; margin-bottom: 10px; color: #333;
+        .btn:active { transform: translateY(2px); box-shadow: 0 2px 10px rgba(0,0,0,0.2); }
+
+        /* ポップアップ（情報を整理したさ） */
+        .leaflet-popup-content-wrapper { border-radius: 12px; padding: 5px; }
+        .popup-card { min-width: 180px; }
+        .popup-name { font-weight: bold; font-size: 1.05rem; color: #333; display: block; margin-bottom: 4px; }
+        .popup-address { font-size: 0.75rem; color: #666; display: block; margin-bottom: 10px; }
+        .popup-link { 
+            display: inline-block; background: var(--accent-blue); color: white; 
+            padding: 6px 14px; border-radius: 6px; text-decoration: none; 
+            font-size: 0.8rem; font-weight: bold;
         }
-        .mataro-pin { width: 50px !important; height: 50px !important; border: 3px solid #fff; border-radius: 50%; object-fit: cover; box-shadow: 0 3px 10px rgba(0,0,0,0.4); }
+
+        .mataro-pin { width: 52px !important; height: 52px !important; border: 3px solid #fff; border-radius: 50%; box-shadow: 0 4px 12px rgba(0,0,0,0.3); }
     </style>
 </head>
 <body>
 
 <div class="dog-banner">
     <img src="mataro.jpg" class="dog-photo" onerror="this.src='https://cdn-icons-png.flaticon.com/512/616/616408.png'">
-    <div id="dog-msg-text" class="dog-msg">準備おっけー？</div>
+    <div id="dog-msg-text" class="dog-msg">何か探しに行くさ？</div>
 </div>
 
 <div id="map"></div>
 
 <div class="ui">
-    <div id="status">再起動完了さ！</div><br>
-    <button id="action-btn" class="btn scan-btn" onclick="toggleScan()">🌿 スキャン開始</button>
+    <div id="status">周辺の自然環境をサーチするさ</div><br>
+    <button id="action-btn" class="btn scan-btn" onclick="toggleScan()">🌿 スキャン開始さ</button>
 </div>
 
 <script>
@@ -62,17 +73,12 @@
     let markers = [];
     let searchCircle = null;
 
-    // 地図の初期化（宝塚ソリオ付近）
     const map = L.map('map', { zoomControl: false }).setView([34.811, 135.341], 15);
-    
-    // 地図タイルを確実に読み込むさ（OpenStreetMap）
-    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-        attribution: '&copy; OpenStreetMap contributors'
-    }).addTo(map);
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
 
     function toggleScan() {
         if (isScanning) {
-            stopScan("また後でさ");
+            stopScan("リサーチを完了したさ");
         } else {
             startScan();
         }
@@ -83,27 +89,26 @@
         markers.forEach(m => map.removeLayer(m));
         markers = [];
         
-        document.getElementById('dog-msg-text').innerText = "この辺りをクンクンするさ";
-        document.getElementById('status').innerText = "50件を呼び戻し中さ...";
+        document.getElementById('dog-msg-text').innerText = "クンクン…この辺りが怪しいさ";
+        document.getElementById('status').innerText = "広域スキャンを実行中さ...";
         document.getElementById('action-btn').innerText = "🛑 停止するさ";
         document.getElementById('action-btn').className = "btn stop-btn";
 
         const center = map.getCenter();
         if (searchCircle) map.removeLayer(searchCircle);
-        searchCircle = L.circle(center, { radius: 10000, color: '#2e7d32', fillOpacity: 0.1 }).addTo(map);
+        searchCircle = L.circle(center, { radius: 10000, color: '#2e7d32', fillOpacity: 0.1, weight: 1.5 }).addTo(map);
 
-        // APIリクエスト
-        const url = `https://map.yahooapis.jp/search/local/V1/localSearch?appid=${appid}&lat=${center.lat}&lon=${center.lng}&dist=10&query=${encodeURIComponent('自然食品')}&gc=0116&results=50&output=json&callback=handleResponse`;
+        // 【最安定ロジック】シンプル且つ広範なキーワードでリクエスト
+        const url = `https://map.yahooapis.jp/search/local/V1/localSearch?appid=${appid}&lat=${center.lat}&lon=${center.lng}&dist=10&query=${encodeURIComponent('自然食品')}&results=50&output=json&callback=handleResponse`;
 
         const script = document.createElement('script');
         script.src = url;
         script.id = "api-script";
         document.body.appendChild(script);
 
-        // タイムアウト監視さ
         setTimeout(() => {
             if(isScanning && markers.length === 0) {
-                stopScan("応答がないさ。IDを確認すべきださ");
+                stopScan("応答が見つからなかったさ。再試行してくれさ");
             }
         }, 12000);
     }
@@ -122,24 +127,26 @@
         if (!isScanning) return;
         
         if (!data.Feature || data.Feature.length === 0) {
-            stopScan("ここには店が見当たらないさ");
+            stopScan("このエリアには見当たらなかったさ");
             return;
         }
 
         data.Feature.forEach((f) => {
             const coords = f.Geometry.Coordinates.split(',');
             const m = L.marker([coords[1], coords[0]], {
-                icon: L.icon({ iconUrl: 'mataro.jpg', className: 'mataro-pin', iconSize: [50, 50], iconAnchor: [25, 25] })
+                icon: L.icon({ iconUrl: 'mataro.jpg', className: 'mataro-pin', iconSize: [52, 52], iconAnchor: [26, 26] })
             }).addTo(map).bindPopup(`
-                <b>${f.Name}</b><br>
-                <small>${f.Property.Address}</small><br>
-                <a href="https://www.google.com/search?q=${encodeURIComponent(f.Name + ' ' + f.Property.Address)}" target="_blank" style="color:blue;">詳細を見るさ</a>
+                <div class="popup-card">
+                    <span class="popup-name">${f.Name}</span>
+                    <span class="popup-address">${f.Property.Address || ""}</span>
+                    <a href="https://www.google.com/search?q=${encodeURIComponent(f.Name + ' ' + (f.Property.Address || ""))}" target="_blank" class="popup-link">詳細・ルートを確認さ</a>
+                </div>
             `);
             markers.push(m);
         });
 
-        document.getElementById('dog-msg-text').innerText = "見つけたさ！";
-        stopScan(data.Feature.length + "件見つけたそうさ！");
+        document.getElementById('dog-msg-text').innerText = "いい店を見つけたさ！";
+        stopScan(data.Feature.length + "件のスポットを捕捉したそうさ！");
     };
 </script>
 </body>
