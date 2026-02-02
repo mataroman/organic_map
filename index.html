@@ -48,7 +48,6 @@
     let searchCircle = null;
     let markers = [];
 
-    // あなたのアドバイス通り、簡潔でリズムの良い台詞さ
     const startMsgs = [
         "いい匂いがしてきたさ",
         "この辺りをクンクンするさ",
@@ -79,20 +78,22 @@
         const center = map.getCenter();
         if (searchCircle) map.removeLayer(searchCircle);
         searchCircle = L.circle(center, {
-            radius: 3000, color: '#2e7d32', fillColor: '#2e7d32', fillOpacity: 0.3, weight: 5
+            radius: 5000, color: '#2e7d32', fillColor: '#2e7d32', fillOpacity: 0.2, weight: 3
         }).addTo(map);
 
-        const url = `https://map.yahooapis.jp/search/local/V1/localSearch?appid=${appid}&lat=${center.lat}&lon=${center.lng}&dist=5&query=${encodeURIComponent('自然食品 オーガニック')}&output=json&callback=handleResponse`;
+        // 通信プロトコルを安定版に固定
+        const query = encodeURIComponent('オーガニック 自然食品');
+        const url = `https://map.yahooapis.jp/search/local/V1/localSearch?appid=${appid}&lat=${center.lat}&lon=${center.lng}&dist=5&query=${query}&output=json&callback=handleResponse`;
 
         const script = document.createElement('script');
         script.src = url;
         script.id = "api-script";
-        script.onerror = () => stopScan("通信エラーさ。設定を確認するさ");
         document.body.appendChild(script);
 
+        // 応答がない場合のセーフティ
         setTimeout(() => {
             if(isScanning && markers.length === 0) stopScan("まだ応答がないさ。キーを確認すべきださ");
-        }, 8000);
+        }, 10000);
     }
 
     function stopScan(msg) {
@@ -120,10 +121,11 @@
                 iconUrl: 'mataro.jpg',
                 className: 'mataro-pin',
                 iconSize: [50, 50],
-                iconAnchor: [25, 25]
+                iconAnchor: [25, 25],
+                popupAnchor: [0, -25]
             });
             const m = L.marker([coords[1], coords[0]], {icon: mataroIcon}).addTo(map)
-                .bindPopup(`<b>${f.Name}</b>`);
+                .bindPopup(`<b>${f.Name}</b><br><a href="https://www.google.com/search?q=${f.Name}" target="_blank">詳細さ</a>`);
             markers.push(m);
         });
         document.getElementById('dog-msg-text').innerText = "見つけたさ！";
