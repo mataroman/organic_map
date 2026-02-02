@@ -7,7 +7,7 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.css" />
     <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.js"></script>
     <style>
-        :root { --main-green: #2e7d32; }
+        :root { --main-green: #2e7d32; --stop-red: #c62828; }
         body { margin: 0; padding: 0; height: 100dvh; font-family: sans-serif; background: #000; overflow: hidden; }
         #map { width: 100%; height: 100%; position: absolute; z-index: 1; }
         .dog-banner {
@@ -55,10 +55,8 @@
         if (searchCircle) map.removeLayer(searchCircle);
         searchCircle = L.circle(center, { radius: 10000, color: '#2e7d32', fillOpacity: 0.15 }).addTo(map);
 
-        // 【最重要】
-        // 複雑なOR検索を止め、最もヒット率が高い「自然食品」一発でリクエストするさ。
-        // これで確実にオーガニックプラザを含む周辺50件を呼び戻すそうさ。
-        const url = `https://map.yahooapis.jp/search/local/V1/localSearch?appid=${appid}&lat=${center.lat}&lon=${center.lng}&dist=10&query=${encodeURIComponent('自然食品')}&results=50&output=json&callback=handleResponse`;
+        // 【最強の検索設定】あなたが「一番良かった」と言った構成さ！
+        const url = `https://map.yahooapis.jp/search/local/V1/localSearch?appid=${appid}&lat=${center.lat}&lon=${center.lng}&dist=10&query=${encodeURIComponent('オーガニック')}&results=50&output=json&callback=handleResponse`;
 
         const script = document.createElement('script');
         script.src = url;
