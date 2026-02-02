@@ -11,155 +11,123 @@
         body { margin: 0; padding: 0; height: 100dvh; font-family: sans-serif; overflow: hidden; background: #000; }
         #map { width: 100%; height: 100%; position: absolute; z-index: 1; transition: 0.3s; }
         .map-locked { opacity: 0.8; filter: brightness(0.6); pointer-events: none; }
-
         .dog-banner {
             position: fixed; top: 15px; left: 15px; z-index: 4000;
             background: white; padding: 5px; border-radius: 50px;
             display: flex; align-items: center; box-shadow: 0 4px 10px rgba(0,0,0,0.2);
             border: 2px solid var(--main-green);
         }
-        .dog-photo { width: 50px; height: 50px; border-radius: 50%; object-fit: cover; border: 1px solid #ccc; }
-        .dog-msg { padding: 0 15px 0 10px; font-weight: bold; font-size: 0.8rem; color: #333; }
-
+        .dog-photo { width: 50px; height: 50px; border-radius: 50%; object-fit: cover; }
+        .dog-msg { padding: 0 15px 0 10px; font-weight: bold; font-size: 0.85rem; color: #333; min-width: 160px; }
         .ui { position: fixed; bottom: 30px; left: 0; right: 0; z-index: 3000; text-align: center; }
-        .btn {
-            color: white; border: none; padding: 18px 45px;
-            border-radius: 50px; font-weight: bold; font-size: 1.2rem; box-shadow: 0 10px 25px rgba(0,0,0,0.2);
-            cursor: pointer; min-width: 240px;
-        }
+        .btn { color: white; border: none; padding: 18px 45px; border-radius: 50px; font-weight: bold; font-size: 1.2rem; cursor: pointer; min-width: 240px; box-shadow: 0 5px 15px rgba(0,0,0,0.3); }
         .scan-btn { background: var(--main-green); }
         .stop-btn { background: var(--stop-red); }
-        
-        #progress-container {
-            width: 70%; max-width: 250px; height: 10px; background: rgba(255,255,255,0.3);
-            margin: 15px auto; border-radius: 10px; overflow: hidden; display: none;
-        }
-        #progress-bar { width: 0%; height: 100%; background: #fff; transition: width 0.1s linear; }
-
-        #status {
-            background: rgba(255,255,255,0.95); padding: 8px 20px;
-            border-radius: 25px; font-size: 0.9rem; display: inline-block; font-weight: bold; margin-bottom: 5px;
-        }
-        .mataro-pin {
-            width: 50px !important; height: 50px !important;
-            border: 3px solid #fff; border-radius: 50%;
-            box-shadow: 0 2px 8px rgba(0,0,0,0.5); object-fit: cover;
-        }
+        #status { background: rgba(255,255,255,0.95); padding: 8px 20px; border-radius: 25px; font-size: 0.85rem; display: inline-block; font-weight: bold; margin-bottom: 5px; color: #333; }
+        .mataro-pin { width: 50px !important; height: 50px !important; border: 3px solid #fff; border-radius: 50%; object-fit: cover; }
     </style>
 </head>
 <body>
 
 <div class="dog-banner">
     <img src="mataro.jpg" class="dog-photo" onerror="this.src='https://cdn-icons-png.flaticon.com/512/616/616408.png'">
-    <div class="dog-msg">マー太郎が都でも探すのさ！</div>
+    <div id="dog-msg-text" class="dog-msg">準備はいいかい？そうさ</div>
 </div>
 
 <div id="map"></div>
 
 <div class="ui">
-    <div id="status">どこでもクンクンするのさ</div>
-    <div id="progress-container"><div id="progress-bar"></div></div>
+    <div id="status">マー太郎に任せておけさ</div>
     <button id="action-btn" class="btn scan-btn" onclick="toggleScan()">🌿 スキャン開始</button>
 </div>
 
 <script>
-    // あなたのAPIキー。もしこれでダメなら、Yahoo側で「ClientID」の権限を確認してくれさ。
     const appid = 'dmVyPTIwMjUwNyZpZD1YcTQ2bjJjcU1rJmhhc2g9TlRRNVpURTJZakEyTVRKbVl6TTVZUQ';
+    
     let isScanning = false;
-    let pTimer = null;
     let searchCircle = null;
     let markers = [];
+
+    // 台詞を「〜さ」と「〜そうさ」で自然に使い分け
+    const startMsgs = [
+        "いい匂いがしてきたさ",
+        "この辺りをクンクンしてみるさ",
+        "都内だろうがどこだろうが、嗅ぎ分けるのさ",
+        "この場所のオーガニックを探してみるさ",
+        "ボチボチ始めるさ。鼻は利く方さ",
+        "クンクン…お、この辺りは怪しいさ"
+    ];
 
     const map = L.map('map', { zoomControl: false }).setView([34.811, 135.341], 15);
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
 
-    function toggleScan() { if (isScanning) { stopScan("やめたのさ"); } else { startScan(); } }
+    function toggleScan() { if (isScanning) { stopScan("また後でな、そうさ"); } else { startScan(); } }
 
     function startScan() {
         isScanning = true;
         markers.forEach(m => map.removeLayer(m));
         markers = [];
         
-        map.dragging.disable(); map.touchZoom.disable();
-        document.getElementById('map').classList.add('map-locked');
-        document.getElementById('progress-container').style.display = "block";
-        const btn = document.getElementById('action-btn');
-        const bar = document.getElementById('progress-bar');
-        
-        btn.innerText = "🛑 止めるのさ"; btn.className = "btn stop-btn";
-        document.getElementById('status').innerText = "マー太郎が広域サーチ中さ...";
+        const randomMsg = startMsgs[Math.floor(Math.random() * startMsgs.length)];
+        document.getElementById('dog-msg-text').innerText = randomMsg;
+        document.getElementById('status').innerText = "探索中さ。ちょっと待っててくれさ";
 
-        // 地図の今の中心点を取得。これで東京でもどこでもサーチできるのさ。
+        document.getElementById('map').classList.add('map-locked');
+        document.getElementById('action-btn').innerText = "🛑 停止するさ";
+        document.getElementById('action-btn').className = "btn stop-btn";
+
         const center = map.getCenter();
         if (searchCircle) map.removeLayer(searchCircle);
         searchCircle = L.circle(center, {
-            radius: 5000, color: '#2e7d32', fillColor: '#2e7d32', fillOpacity: 0.3, weight: 6
+            radius: 3000, color: '#2e7d32', fillColor: '#2e7d32', fillOpacity: 0.3, weight: 5
         }).addTo(map);
 
-        bar.style.width = "0%";
-        let pVal = 0;
-        pTimer = setInterval(() => {
-            pVal += 0.3; // じっくり見せるためにさらに低速化さ
-            if(pVal <= 98) bar.style.width = pVal + "%";
-        }, 30);
-
-        // 検索クエリ。シンプルに「オーガニック」が一番確実さ。
-        const query = encodeURIComponent('オーガニック');
-        const url = `https://map.yahooapis.jp/search/local/V1/localSearch?appid=${appid}&lat=${center.lat}&lon=${center.lng}&dist=10&query=${query}&output=json&results=20&callback=handleResponse`;
+        const url = `https://map.yahooapis.jp/search/local/V1/localSearch?appid=${appid}&lat=${center.lat}&lon=${center.lng}&dist=5&query=${encodeURIComponent('自然食品 オーガニック')}&output=json&callback=handleResponse`;
 
         const script = document.createElement('script');
-        script.id = "yahoo-script";
         script.src = url;
-        script.onerror = () => stopScan("通信失敗さ。キーか設定を確認してくれさ");
+        script.id = "api-script";
+        script.onerror = () => stopScan("通信エラーさ。設定を確認するさ");
         document.body.appendChild(script);
+
+        setTimeout(() => {
+            if(isScanning && markers.length === 0) stopScan("まだ応答がないさ。キーを確認すべきだそうさ");
+        }, 8000);
     }
 
     function stopScan(msg) {
         isScanning = false;
-        clearInterval(pTimer);
-        map.dragging.enable(); map.touchZoom.enable();
         document.getElementById('map').classList.remove('map-locked');
-        document.getElementById('progress-container').style.display = "none";
+        document.getElementById('status').innerText = msg;
         document.getElementById('action-btn').innerText = "🌿 スキャン開始さ";
         document.getElementById('action-btn').className = "btn scan-btn";
-        document.getElementById('status').innerText = msg;
-        const script = document.getElementById('yahoo-script');
-        if (script) script.remove();
+        if (searchCircle) { map.removeLayer(searchCircle); searchCircle = null; }
+        const oldScript = document.getElementById('api-script');
+        if (oldScript) oldScript.remove();
     }
 
     window.handleResponse = function(data) {
         if (!isScanning) return;
-        document.getElementById('progress-bar').style.width = "100%";
         
-        // 円を残して「見つけた感」を出すさ
         if (!data.Feature || data.Feature.length === 0) {
-            if (searchCircle) { map.removeLayer(searchCircle); searchCircle = null; }
-            stopScan("ここには店が見つからないそうさ...");
+            stopScan("ここには店が見当たらないさ");
             return;
         }
 
         data.Feature.forEach((f, i) => {
-            setTimeout(() => {
-                const coords = f.Geometry.Coordinates.split(',');
-                const mataroIcon = L.icon({
-                    iconUrl: 'mataro.jpg',
-                    className: 'mataro-pin',
-                    iconSize: [50, 50],
-                    iconAnchor: [25, 25],
-                    popupAnchor: [0, -25]
-                });
-
-                const m = L.marker([coords[1], coords[0]], {icon: mataroIcon}).addTo(map)
-                    .bindPopup(`<b>${f.Name}</b><br><a href="https://www.google.com/search?q=${f.Name}" target="_blank">詳細さ</a>`);
-                markers.push(m);
-            }, i * 150);
+            const coords = f.Geometry.Coordinates.split(',');
+            const mataroIcon = L.icon({
+                iconUrl: 'mataro.jpg',
+                className: 'mataro-pin',
+                iconSize: [50, 50],
+                iconAnchor: [25, 25]
+            });
+            const m = L.marker([coords[1], coords[0]], {icon: mataroIcon}).addTo(map)
+                .bindPopup(`<b>${f.Name}</b>`);
+            markers.push(m);
         });
-
-        // 全員出し終わったら円を消すさ
-        setTimeout(() => {
-            if (searchCircle) { map.removeLayer(searchCircle); searchCircle = null; }
-            stopScan(data.Feature.length + "件見つけたのさ！");
-        }, data.Feature.length * 150 + 500);
+        document.getElementById('dog-msg-text').innerText = "見つけたさ！";
+        stopScan(data.Feature.length + "件、見つかったそうさ！");
     };
 </script>
 </body>
