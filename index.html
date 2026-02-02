@@ -49,20 +49,23 @@
 <div id="map"></div>
 
 <div class="ui">
-    <div id="status">宝塚をクンクンするのさ</div>
+    <div id="status">どこでもクンクンするのさ</div>
     <div id="progress-container"><div id="progress-bar"></div></div>
     <button id="action-btn" class="btn scan-btn" onclick="toggleScan()">🌿 スキャン開始</button>
 </div>
 
 <script>
+    // 提供された最新のAPIキーを使用
     const appid = 'dmVyPTIwMjUwNyZpZD1YcTQ2bjJjcU1rJmhhc2g9TlRRNVpURTJZakEyTVRKbVl6TTVZUQ';
     let isScanning = false;
     let timeoutTimer = null;
     let pTimer = null;
 
+    // 地図の初期設定（宝塚周辺）
     const map = L.map('map', { zoomControl: false }).setView([34.811, 135.341], 15);
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
 
+    // 最初に現在地へ飛ばす（許可された場合のみ）
     navigator.geolocation.getCurrentPosition(pos => {
         map.flyTo([pos.coords.latitude, pos.coords.longitude], 15);
     });
@@ -83,20 +86,27 @@
         bar.style.width = "0%";
         let pVal = 0;
         pTimer = setInterval(() => {
-            pVal += 1;
+            pVal += 2;
             if(pVal <= 98) bar.style.width = pVal + "%";
         }, 100);
 
+        // 10秒のタイムアウトさ
         timeoutTimer = setTimeout(() => {
             if (isScanning) stopScan("反応がないみたいさ...😢");
         }, 10000);
 
+        // 【ここがポイント】地図の「今」の中心座標を取得するのさ
         const center = map.getCenter();
-        const query = encodeURIComponent('オーガニック 自然食品 無添加 産直');
-        const url = `https://map.yahooapis.jp/search/local/V1/localSearch?appid=${appid}&lat=${center.lat}&lon=${center.lng}&dist=3&query=${query}&output=json&results=20&callback=handleResponse`;
+        const query = encodeURIComponent('オーガニック 自然食品 無添加');
+        
+        // 検索距離を3kmから5kmに少し広げたそうさ
+        const url = `https://map.yahooapis.jp/search/local/V1/localSearch?appid=${appid}&lat=${center.lat}&lon=${center.lng}&dist=5&query=${query}&output=json&results=20&callback=handleResponse`;
 
         const script = document.createElement('script');
-        script.id = "yahoo-script"; script.src = url;
+        script.id = "yahoo-script"; 
+        script.src = url;
+        // エラーハンドリングも追加さ
+        script.onerror = () => stopScan("通信エラーさ...");
         document.body.appendChild(script);
     }
 
@@ -121,8 +131,9 @@
         document.getElementById('progress-bar').style.width = "100%";
 
         setTimeout(() => {
+            // Yahoo! APIの応答形式に合わせたチェックさ
             if (!data.Feature || data.Feature.length === 0) {
-                stopScan("近くに見つからなかったのさ...");
+                stopScan("ここには店がないみたいさ...");
                 return;
             }
 
