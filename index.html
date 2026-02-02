@@ -10,8 +10,6 @@
         :root { --main-green: #2e7d32; --accent: #1a73e8; }
         body { margin: 0; padding: 0; height: 100dvh; font-family: sans-serif; background: #f8fcf8; overflow: hidden; }
         #map { width: 100%; height: 100%; position: absolute; z-index: 1; }
-        
-        /* マー太郎バナー（常に最新の語尾で案内さ） */
         .dog-banner {
             position: fixed; top: 15px; left: 15px; z-index: 4000;
             background: white; padding: 6px; border-radius: 50px;
@@ -20,24 +18,10 @@
         }
         .dog-photo { width: 48px; height: 48px; border-radius: 50%; object-fit: cover; }
         .dog-msg { padding: 0 15px 0 10px; font-weight: bold; font-size: 0.85rem; color: #2e7d32; min-width: 140px; }
-
-        /* UIパネル（プロ仕様の文言さ） */
         .ui { position: fixed; bottom: 35px; left: 0; right: 0; z-index: 3000; text-align: center; }
-        #status { 
-            background: rgba(255,255,255,0.95); padding: 8px 22px; border-radius: 25px; 
-            font-size: 0.85rem; display: inline-block; font-weight: bold; margin-bottom: 10px; 
-            color: #333; box-shadow: 0 2px 8px rgba(0,0,0,0.1);
-        }
-        .btn { 
-            color: white; background: var(--main-green); border: none; padding: 16px 45px; 
-            border-radius: 50px; font-weight: bold; font-size: 1.1rem; cursor: pointer; 
-            box-shadow: 0 5px 15px rgba(0,0,0,0.3); transition: 0.2s;
-        }
-        .btn:active { transform: scale(0.96); }
-
-        .mataro-pin { width: 52px !important; height: 52px !important; border: 3px solid #fff; border-radius: 50%; box-shadow: 0 3px 10px rgba(0,0,0,0.3); }
-        .popup-name { font-weight: bold; color: var(--main-green); font-size: 1rem; }
-        .popup-link { display: inline-block; margin-top: 8px; color: var(--accent); font-weight: bold; text-decoration: none; }
+        #status { background: rgba(255,255,255,0.95); padding: 8px 22px; border-radius: 25px; font-size: 0.85rem; display: inline-block; font-weight: bold; margin-bottom: 10px; color: #333; }
+        .btn { color: white; background: var(--main-green); border: none; padding: 16px 45px; border-radius: 50px; font-weight: bold; font-size: 1.1rem; cursor: pointer; box-shadow: 0 5px 15px rgba(0,0,0,0.3); }
+        .mataro-pin { width: 52px !important; height: 52px !important; border: 3px solid #fff; border-radius: 50%; object-fit: cover; box-shadow: 0 3px 10px rgba(0,0,0,0.3); }
     </style>
 </head>
 <body>
@@ -50,8 +34,8 @@
 <div id="map"></div>
 
 <div class="ui">
-    <div id="status">周辺の店舗情報をリサーチするさ</div><br>
-    <button class="btn" onclick="startScan()">🌿 情報をスキャンするさ</button>
+    <div id="status">周辺をワイドスキャンするさ</div><br>
+    <button class="btn" onclick="startScan()">🌿 スキャンを開始するさ</button>
 </div>
 
 <script>
@@ -64,14 +48,12 @@
     function startScan() {
         markers.forEach(m => map.removeLayer(m));
         markers = [];
-        document.getElementById('status').innerText = "データベースを照合中さ...";
-        document.getElementById('dog-msg-text').innerText = "いい店を見つけるそうさ！";
-
+        document.getElementById('status').innerText = "広域データを照合中さ...";
+        
         const center = map.getCenter();
         
-        // 【核心】オーガニック、有機、ORGANICを優先。これでただの食品店を排除さ
-        const query = encodeURIComponent('オーガニック OR 有機 OR ORGANIC');
-        const url = `https://map.yahooapis.jp/search/local/V1/localSearch?appid=${appid}&lat=${center.lat}&lon=${center.lng}&dist=10&query=${query}&results=50&output=json&callback=handleResponse`;
+        // 確実にヒットする「自然食品」で広く拾いつつ、業種(gc)も指定さ
+        const url = `https://map.yahooapis.jp/search/local/V1/localSearch?appid=${appid}&lat=${center.lat}&lon=${center.lng}&dist=10&query=${encodeURIComponent('自然食品')}&gc=0116&results=50&output=json&callback=handleResponse`;
 
         const script = document.createElement('script');
         script.src = url;
@@ -81,23 +63,36 @@
 
     window.handleResponse = function(data) {
         if (!data.Feature || data.Feature.length === 0) {
-            document.getElementById('status').innerText = "該当する店舗が見当たらないさ";
+            document.getElementById('status').innerText = "店舗が見当たらないさ";
             return;
         }
 
+        let matchCount = 0;
         data.Feature.forEach((f) => {
+            const name = f.Name;
+            // 判定ロジック：店名に「オーガニック」「有機」「自然」が含まれるものを強調さ
+            const isPure = /オーガニック|有機|ORGANIC|自然食品/.test(name);
+            
             const coords = f.Geometry.Coordinates.split(',');
             const m = L.marker([coords[1], coords[0]], {
-                icon: L.icon({ iconUrl: 'mataro.jpg', className: 'mataro-pin', iconSize: [52, 52], iconAnchor: [26, 26] })
+                icon: L.icon({ 
+                    iconUrl: 'mataro.jpg', 
+                    className: 'mataro-pin', 
+                    iconSize: isPure ? [60, 60] : [45, 45], // 本命は大きく表示さ！
+                    iconAnchor: isPure ? [30, 30] : [22, 22]
+                }),
+                zIndexOffset: isPure ? 1000 : 0 // 本命を前面に出すさ
             }).addTo(map).bindPopup(`
-                <b class="popup-name">${f.Name}</b><br>
+                <b>${isPure ? '⭐ ' : ''}${name}</b><br>
                 <small>${f.Property.Address || ""}</small><br>
-                <a href="https://www.google.com/search?q=${encodeURIComponent(f.Name + ' ' + (f.Property.Address || ""))}" target="_blank" class="popup-link">詳細情報を確認するさ</a>
+                <a href="https://www.google.com/search?q=${encodeURIComponent(name + ' ' + (f.Property.Address || ""))}" target="_blank" style="color:blue; font-weight:bold;">詳細を見るさ</a>
             `);
             markers.push(m);
+            matchCount++;
         });
 
-        document.getElementById('status').innerText = data.Feature.length + "件の候補を表示したそうさ！";
+        document.getElementById('status').innerText = matchCount + "件の候補を見つけたそうさ！";
+        document.getElementById('dog-msg-text').innerText = "大きいピンがおすすめさ！";
     };
 </script>
 </body>
