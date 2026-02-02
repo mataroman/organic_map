@@ -25,7 +25,7 @@
         .btn {
             color: white; border: none; padding: 18px 45px;
             border-radius: 50px; font-weight: bold; font-size: 1.2rem; box-shadow: 0 10px 25px rgba(0,0,0,0.2);
-            cursor: pointer; min-width: 240px; -webkit-appearance: none;
+            cursor: pointer; min-width: 240px;
         }
         .scan-btn { background: var(--main-green); }
         .stop-btn { background: var(--stop-red); }
@@ -34,13 +34,18 @@
             width: 70%; max-width: 250px; height: 8px; background: rgba(255,255,255,0.5);
             margin: 15px auto; border-radius: 10px; overflow: hidden; display: none;
         }
-        #progress-bar { width: 0%; height: 100%; background: #fff; transition: width 0.2s linear; }
+        #progress-bar { width: 0%; height: 100%; background: #fff; transition: width 0.1s linear; }
 
         #status {
-            background: rgba(255,255,255,0.9); padding: 8px 20px;
+            background: rgba(255,255,255,0.95); padding: 8px 20px;
             border-radius: 25px; font-size: 0.9rem; display: inline-block; font-weight: bold;
         }
-        .dog-pin { font-size: 35px; text-align: center; }
+        /* マー太郎ピンのスタイル */
+        .mataro-pin {
+            width: 45px !important; height: 45px !important;
+            border: 3px solid white; border-radius: 50%;
+            box-shadow: 0 0 10px rgba(0,0,0,0.5); object-fit: cover;
+        }
     </style>
 </head>
 <body>
@@ -53,56 +58,59 @@
 <div id="map"></div>
 
 <div class="ui">
-    <div id="status">どこでもクンクンするのさ</div>
+    <div id="status">マー太郎が探してくれるさ</div>
     <div id="progress-container"><div id="progress-bar"></div></div>
     <button id="action-btn" class="btn scan-btn" onclick="toggleScan()">🌿 スキャン開始</button>
 </div>
 
 <script>
+    // APIキー（もしこれでもダメなら、Yahooのデベロッパーネットワークで「ドメイン制限」を確認してほしいさ）
     const appid = 'dmVyPTIwMjUwNyZpZD1YcTQ2bjJjcU1rJmhhc2g9TlRRNVpURTJZakEyTVRKbVl6TTVZUQ';
     let isScanning = false;
     let pTimer = null;
     let searchCircle = null;
+    let markers = [];
 
     const map = L.map('map', { zoomControl: false }).setView([34.811, 135.341], 15);
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
 
-    function toggleScan() { if (isScanning) { stopScan("止めるのさ"); } else { startScan(); } }
+    function toggleScan() { if (isScanning) { stopScan("やめるのさ"); } else { startScan(); } }
 
     function startScan() {
         isScanning = true;
+        // 古いピンを消すさ
+        markers.forEach(m => map.removeLayer(m));
+        markers = [];
+        
         map.dragging.disable(); map.touchZoom.disable();
         document.getElementById('map').classList.add('map-locked');
         document.getElementById('progress-container').style.display = "block";
         const btn = document.getElementById('action-btn');
         const bar = document.getElementById('progress-bar');
         
-        btn.innerText = "🛑 停止するさ"; btn.className = "btn stop-btn";
+        btn.innerText = "🛑 止めるのさ"; btn.className = "btn stop-btn";
         document.getElementById('status').innerText = "マー太郎が探索中さ...";
 
-        // 地図上にスキャン範囲の円を描画（半径5km）
         const center = map.getCenter();
         searchCircle = L.circle(center, {
-            radius: 5000, color: '#2e7d32', fillColor: '#2e7d32', fillOpacity: 0.2, weight: 2
+            radius: 5000, color: '#2e7d32', fillColor: '#2e7d32', fillOpacity: 0.1, weight: 2
         }).addTo(map);
 
         bar.style.width = "0%";
         let pVal = 0;
         pTimer = setInterval(() => {
-            pVal += 5;
-            if(pVal <= 100) bar.style.width = pVal + "%";
-            if(pVal >= 100) {
-                clearInterval(pTimer);
-                // 3秒経ってもAPIが返ってこなければ強制的にダミーを表示（検証用）
-                setTimeout(() => { if(isScanning) addMarker(center.lat, center.lng, "検証用：マー太郎ショップ"); }, 1000);
-            }
-        }, 150);
+            pVal += 1;
+            if(pVal <= 99) bar.style.width = pVal + "%";
+        }, 100);
 
-        const query = encodeURIComponent('オーガニック 自然食品 無添加');
+        // 検索ワードをより強力なものにしたそうさ
+        const query = encodeURIComponent('オーガニック 自然食品');
         const url = `https://map.yahooapis.jp/search/local/V1/localSearch?appid=${appid}&lat=${center.lat}&lon=${center.lng}&dist=5&query=${query}&output=json&results=20&callback=handleResponse`;
 
         const script = document.createElement('script');
-        script.id = "yahoo-script"; script.src = url;
+        script.id = "yahoo-script";
+        script.src = url;
+        script.onerror = () => stopScan("通信に失敗したそうさ。電波か設定を確認してくれさ");
         document.body.appendChild(script);
     }
 
@@ -113,38 +121,40 @@
         document.getElementById('map').classList.remove('map-locked');
         document.getElementById('progress-container').style.display = "none";
         if (searchCircle) { map.removeLayer(searchCircle); searchCircle = null; }
-        
-        const btn = document.getElementById('action-btn');
-        btn.innerText = "🌿 スキャン開始さ"; btn.className = "btn scan-btn";
+        document.getElementById('action-btn').innerText = "🌿 スキャン開始さ";
+        document.getElementById('action-btn').className = "btn scan-btn";
         document.getElementById('status').innerText = msg;
-
         const script = document.getElementById('yahoo-script');
         if (script) script.remove();
     }
 
-    function addMarker(lat, lng, name) {
-        const dogIcon = L.divIcon({
-            html: '🐶', className: 'dog-pin', iconSize: [40, 40], iconAnchor: [20, 20]
-        });
-        L.marker([lat, lng], {icon: dogIcon}).addTo(map)
-            .bindPopup(`<b>${name}</b><br><a href="https://www.google.com/search?q=${name}" target="_blank">詳細さ</a>`).openPopup();
-        stopScan("見つけたのさ！");
-    }
-
     window.handleResponse = function(data) {
         if (!isScanning) return;
+        document.getElementById('progress-bar').style.width = "100%";
+
         if (!data.Feature || data.Feature.length === 0) {
-            // APIで店が見つからなくても、中心に検証ピンを出すのさ
-            addMarker(map.getCenter().lat, map.getCenter().lng, "マー太郎ショップ（検証用）");
+            stopScan("ここには店が見つからないそうさ...");
             return;
         }
 
         data.Feature.forEach((f, i) => {
             setTimeout(() => {
                 const coords = f.Geometry.Coordinates.split(',');
-                addMarker(coords[1], coords[0], f.Name);
+                // 【ここがポイント】マー太郎の顔をピンにするのさ
+                const mataroIcon = L.icon({
+                    iconUrl: 'mataro.jpg',
+                    className: 'mataro-pin',
+                    iconSize: [45, 45],
+                    iconAnchor: [22, 22],
+                    popupAnchor: [0, -20]
+                });
+
+                const m = L.marker([coords[1], coords[0]], {icon: mataroIcon}).addTo(map)
+                    .bindPopup(`<b>${f.Name}</b><br><a href="https://www.google.com/search?q=${f.Name}" target="_blank">詳細さ</a>`);
+                markers.push(m);
             }, i * 100);
         });
+        setTimeout(() => stopScan(data.Feature.length + "件見つけたのさ！"), 1000);
     };
 </script>
 </body>
